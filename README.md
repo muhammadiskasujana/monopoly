@@ -2,12 +2,15 @@
 
 Aplikasi pendamping papan Monopoly fisik. Saldo, bank, transaksi, properti, rumah, hotel, sewa, kartu, dan panel admin berjalan dari web dan tersinkron antarpemain.
 
+<<<<<<< HEAD
 Fitur tambahan:
 
 - Layout papan 16 petak mengikuti konfigurasi admin dan dapat diunduh sebagai PNG resolusi tinggi.
 - QR pembayaran internal sungguhan dengan nominal permintaan opsional.
 - Scan QR memakai kamera HP; penerima dan nominal terisi otomatis lalu dikonfirmasi sebelum saldo berpindah.
 
+=======
+>>>>>>> 53d8969820331526ee8ea3a2c5a890626333253c
 ## Menjalankan dengan Docker (disarankan)
 
 Persyaratan: Docker Engine dan Docker Compose.
@@ -40,8 +43,11 @@ APP_PORT=3000
 4. Arahkan domain ke service `app` port `3000`.
 5. Deploy. Jangan expose service PostgreSQL ke internet.
 
+<<<<<<< HEAD
 Pemindaian kamera membutuhkan HTTPS (atau `localhost` saat pengembangan). Pastikan domain Coolify sudah memiliki SSL aktif; browser biasanya menolak akses kamera melalui alamat HTTP biasa.
 
+=======
+>>>>>>> 53d8969820331526ee8ea3a2c5a890626333253c
 ## Menjalankan tanpa Docker
 
 Gunakan Node.js 22+ dan PostgreSQL 15+.
