@@ -5,99 +5,1846 @@ import { QRCodeSVG } from "qrcode.react";
 import { toPng } from "html-to-image";
 import { signIn, signOut, useSession } from "next-auth/react";
 
-type Player = { id:string; name:string; token:string; balance:number; is_host:number; status:string };
-type Tx = { id:string; from_player_id:string|null; to_player_id:string|null; amount:number; type:string; note:string; status:string; created_at:number };
-type Property = { id:string; name:string; price:number; rent:number; owner_player_id:string|null; houses:number; group_name:string; house_price:number; hotel_price:number; sell_price:number; rent_1:number; rent_2:number; rent_3:number; rent_4:number; rent_hotel:number };
-type Space = { id:string; position:number; name:string; type:string; property_id:string|null; color:string };
-type Card = { id:string; deck:string; title:string; description:string; amount:number; enabled:number };
-type Settings = { starting_balance:number; go_salary:number; max_players:number; currency_symbol:string; require_bank_approval:number };
-type Game = { room:{ code:string; status:string; turn:number }; players:Player[]; transactions:Tx[]; properties:Property[]; spaces:Space[]; cards:Card[]; settings:Settings };
-type Session = { roomCode:string; playerId:string };
-type Analytics = { summary:{total_users:number;active_accounts:number;active_30d:number;active_today:number};daily:{date:string;visits:number;users:number}[] };
-
-const TOKENS = ["🚗","🎩","🐕","🚢","🐈","🚀","🛵","🦖"];
-const api = async (body:Record<string,unknown>) => {
-  const r = await fetch("/api/game", {method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
-  const d = await r.json(); if(!r.ok) throw new Error(d.error||"Terjadi kesalahan"); return d;
+type Player = {
+  id: string;
+  name: string;
+  token: string;
+  balance: number;
+  is_host: number;
+  status: string;
+};
+type Tx = {
+  id: string;
+  from_player_id: string | null;
+  to_player_id: string | null;
+  amount: number;
+  type: string;
+  note: string;
+  status: string;
+  created_at: number;
+};
+type Property = {
+  id: string;
+  name: string;
+  price: number;
+  rent: number;
+  owner_player_id: string | null;
+  houses: number;
+  group_name: string;
+  house_price: number;
+  hotel_price: number;
+  sell_price: number;
+  rent_1: number;
+  rent_2: number;
+  rent_3: number;
+  rent_4: number;
+  rent_hotel: number;
+};
+type Space = {
+  id: string;
+  position: number;
+  name: string;
+  type: string;
+  property_id: string | null;
+  color: string;
+};
+type Card = {
+  id: string;
+  deck: string;
+  title: string;
+  description: string;
+  amount: number;
+  enabled: number;
+};
+type Settings = {
+  starting_balance: number;
+  go_salary: number;
+  max_players: number;
+  currency_symbol: string;
+  require_bank_approval: number;
+};
+type Game = {
+  room: { code: string; status: string; turn: number };
+  players: Player[];
+  transactions: Tx[];
+  properties: Property[];
+  spaces: Space[];
+  cards: Card[];
+  settings: Settings;
+};
+type Session = { roomCode: string; playerId: string };
+type Analytics = {
+  summary: {
+    total_users: number;
+    active_accounts: number;
+    active_30d: number;
+    active_today: number;
+  };
+  daily: { date: string; visits: number; users: number }[];
 };
 
-export default function Home(){
-  const { data:login,status:loginStatus }=useSession();
-  const [analytics,setAnalytics]=useState<Analytics|null>(null);
-  const [session,setSession] = useState<Session|null>(null);
-  const [game,setGame] = useState<Game|null>(null);
-  const [name,setName] = useState(""); const [code,setCode] = useState(""); const [token,setToken] = useState(TOKENS[0]);
-  const [mode,setMode] = useState<"home"|"create"|"join">("home");
-  const [modal,setModal] = useState<"pay"|"bank"|"qr"|"scan"|"property"|"propertyScan"|"card"|"admin"|null>(null);
-  const [adminTab,setAdminTab] = useState<"rules"|"spaces"|"properties"|"cards"|"board">("rules");
-  const [target,setTarget] = useState("bank"); const [amount,setAmount] = useState("100"); const [note,setNote] = useState("Pembayaran");
-  const [qrAmount,setQrAmount] = useState("");
-  const [scannedPropertyId,setScannedPropertyId] = useState<string|null>(null);
-  const [toast,setToast] = useState(""); const [busy,setBusy] = useState(false);
-  const boardRef=useRef<HTMLDivElement>(null);
+const TOKENS = ["🚗", "🎩", "🐕", "🚢", "🐈", "🚀", "🛵", "🦖"];
+const api = async (body: Record<string, unknown>) => {
+  const r = await fetch("/api/game", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || "Terjadi kesalahan");
+  return d;
+};
 
-  useEffect(()=>{fetch("/api/analytics").then(r=>r.json()).then(setAnalytics).catch(()=>{})},[]);
-  useEffect(()=>{if(loginStatus!=="authenticated")return;fetch("/api/analytics",{method:"POST"}).then(()=>fetch("/api/analytics")).then(r=>r.json()).then(setAnalytics).catch(()=>{});if(!name&&login?.user?.name)setName(login.user.name.slice(0,18))},[loginStatus,login?.user?.name,name]);
+export default function Home() {
+  const { data: login, status: loginStatus } = useSession();
+  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [game, setGame] = useState<Game | null>(null);
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [token, setToken] = useState(TOKENS[0]);
+  const [mode, setMode] = useState<"home" | "create" | "join">("home");
+  const [modal, setModal] = useState<
+    | "pay"
+    | "bank"
+    | "qr"
+    | "scan"
+    | "property"
+    | "propertyScan"
+    | "card"
+    | "admin"
+    | null
+  >(null);
+  const [adminTab, setAdminTab] = useState<
+    "rules" | "spaces" | "properties" | "cards" | "board"
+  >("rules");
+  const [target, setTarget] = useState("bank");
+  const [amount, setAmount] = useState("100");
+  const [note, setNote] = useState("Pembayaran");
+  const [qrAmount, setQrAmount] = useState("");
+  const [scannedPropertyId, setScannedPropertyId] = useState<string | null>(
+    null,
+  );
+  const [toast, setToast] = useState("");
+  const [busy, setBusy] = useState(false);
+  const boardRef = useRef<HTMLDivElement>(null);
 
-  const tell=(m:string)=>{setToast(m);window.setTimeout(()=>setToast(""),2600)};
-  const refresh=useCallback(async(s=session)=>{if(!s)return;try{setGame(await api({action:"state",...s}))}catch(e){tell((e as Error).message)}},[session]);
-  useEffect(()=>{if(loginStatus!=="authenticated")return;const raw=localStorage.getItem("monopoly-session");if(raw) setSession(JSON.parse(raw))},[loginStatus]);
-  useEffect(()=>{if(!session)return;refresh(session);const id=setInterval(()=>refresh(session),2200);return()=>clearInterval(id)},[session,refresh]);
-  const enter=(s:Session)=>{localStorage.setItem("monopoly-session",JSON.stringify(s));setSession(s)};
-  async function start(action:"create"|"join") { if(name.trim().length<2)return tell("Isi nama minimal 2 huruf"); setBusy(true);try{const d=await api({action,name:name.trim(),code:code.trim().toUpperCase(),token});enter(d.session)}catch(e){tell((e as Error).message)}finally{setBusy(false)} }
-  async function act(payload:Record<string,unknown>,message:string){if(!session)return;setBusy(true);try{await api({...payload,...session});await refresh();setModal(null);tell(message)}catch(e){tell((e as Error).message)}finally{setBusy(false)}}
-  async function adminAct(payload:Record<string,unknown>,message:string){if(!session)return;setBusy(true);try{await api({...payload,...session});await refresh();tell(message)}catch(e){tell((e as Error).message)}finally{setBusy(false)}}
-  function leave(){localStorage.removeItem("monopoly-session");setSession(null);setGame(null);setMode("home")}
-  async function downloadBoard(){if(!boardRef.current)return;setBusy(true);try{const dataUrl=await toPng(boardRef.current,{pixelRatio:3,cacheBust:true,backgroundColor:"#dcebdd"});const link=document.createElement("a");link.download=`papan-monopoly-${game?.room.code||"custom"}.png`;link.href=dataUrl;link.click();tell("Gambar papan berhasil diunduh")}catch{tell("Gambar papan gagal dibuat. Coba lagi.")}finally{setBusy(false)}}
+  useEffect(() => {
+    fetch("/api/analytics")
+      .then((r) => r.json())
+      .then(setAnalytics)
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (loginStatus !== "authenticated") return;
+    fetch("/api/analytics", { method: "POST" })
+      .then(() => fetch("/api/analytics"))
+      .then((r) => r.json())
+      .then(setAnalytics)
+      .catch(() => {});
+    if (!name && login?.user?.name) setName(login.user.name.slice(0, 18));
+  }, [loginStatus, login?.user?.name, name]);
 
-  useEffect(()=>{if(modal!=="scan")return;let scanner:{stop:()=>Promise<void>;clear:()=>void;getState:()=>number}|null=null;let cancelled=false;(async()=>{try{const {Html5Qrcode}=await import("html5-qrcode");if(cancelled)return;const instance=new Html5Qrcode("qr-reader");scanner=instance;await instance.start({facingMode:"environment"},{fps:10,qrbox:{width:240,height:240}},text=>{try{const payload=JSON.parse(text);if(payload.room!==session?.roomCode)throw new Error("QR bukan dari ruang ini");if(payload.kind==="monopoly-property"){if(!game?.properties.some(p=>p.id===payload.propertyId))throw new Error("Properti tidak ditemukan");setScannedPropertyId(String(payload.propertyId));setModal("propertyScan");tell("Properti terbaca. Periksa tindakan yang tersedia.");return}if(payload.kind!=="monopoly-payment")throw new Error("QR tidak dikenali");if(payload.playerId===session?.playerId)throw new Error("Tidak dapat membayar diri sendiri");setTarget(String(payload.playerId));if(Number(payload.amount)>0)setAmount(String(Math.trunc(Number(payload.amount))));setNote(`Pembayaran QR ke ${String(payload.name||"pemain")}`);setModal("pay");tell("QR terbaca. Periksa lalu konfirmasi pembayaran.")}catch(e){tell((e as Error).message)}} ,()=>{});}catch(e){tell("Kamera tidak dapat dibuka. Pastikan izin kamera diberikan dan website memakai HTTPS.")}})();return()=>{cancelled=true;if(!scanner)return;const state=scanner.getState();if(state===2||state===3)scanner.stop().catch(()=>{}).finally(()=>scanner?.clear());else scanner.clear()}},[modal,session,game]);
+  const tell = (m: string) => {
+    setToast(m);
+    window.setTimeout(() => setToast(""), 2600);
+  };
+  const refresh = useCallback(
+    async (s = session) => {
+      if (!s) return;
+      try {
+        setGame(await api({ action: "state", ...s }));
+      } catch (e) {
+        tell((e as Error).message);
+      }
+    },
+    [session],
+  );
+  useEffect(() => {
+    if (loginStatus !== "authenticated") return;
+    const raw = localStorage.getItem("ORANG KAYA-session");
+    if (raw) setSession(JSON.parse(raw));
+  }, [loginStatus]);
+  useEffect(() => {
+    if (!session) return;
+    refresh(session);
+    const id = setInterval(() => refresh(session), 2200);
+    return () => clearInterval(id);
+  }, [session, refresh]);
+  const enter = (s: Session) => {
+    localStorage.setItem("ORANG KAYA-session", JSON.stringify(s));
+    setSession(s);
+  };
+  async function start(action: "create" | "join") {
+    if (name.trim().length < 2) return tell("Isi nama minimal 2 huruf");
+    setBusy(true);
+    try {
+      const d = await api({
+        action,
+        name: name.trim(),
+        code: code.trim().toUpperCase(),
+        token,
+      });
+      enter(d.session);
+    } catch (e) {
+      tell((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function act(payload: Record<string, unknown>, message: string) {
+    if (!session) return;
+    setBusy(true);
+    try {
+      await api({ ...payload, ...session });
+      await refresh();
+      setModal(null);
+      tell(message);
+    } catch (e) {
+      tell((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function adminAct(payload: Record<string, unknown>, message: string) {
+    if (!session) return;
+    setBusy(true);
+    try {
+      await api({ ...payload, ...session });
+      await refresh();
+      tell(message);
+    } catch (e) {
+      tell((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  function leave() {
+    localStorage.removeItem("ORANG KAYA-session");
+    setSession(null);
+    setGame(null);
+    setMode("home");
+  }
+  async function downloadBoard() {
+    if (!boardRef.current) return;
+    setBusy(true);
+    try {
+      const dataUrl = await toPng(boardRef.current, {
+        pixelRatio: 3,
+        cacheBust: true,
+        backgroundColor: "#dcebdd",
+      });
+      const link = document.createElement("a");
+      link.download = `papan-ORANG KAYA-${game?.room.code || "custom"}.png`;
+      link.href = dataUrl;
+      link.click();
+      tell("Gambar papan berhasil diunduh");
+    } catch {
+      tell("Gambar papan gagal dibuat. Coba lagi.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
-  const stats=<section className="public-stats"><div><small>Akun terdaftar</small><b>{analytics?.summary.total_users??0}</b></div><div><small>Akun aktif</small><b>{analytics?.summary.active_accounts??0}</b></div><div><small>Aktif 30 hari</small><b>{analytics?.summary.active_30d??0}</b></div><div><small>Aktif hari ini</small><b>{analytics?.summary.active_today??0}</b></div><div className="visit-chart"><span><small>Kunjungan 7 hari terakhir</small><b>{analytics?.daily.reduce((a,x)=>a+x.visits,0)??0}</b></span><span className="bars">{(analytics?.daily||[]).map(x=><i key={x.date} title={`${x.date}: ${x.visits} kunjungan`} style={{height:`${Math.max(8,Math.min(56,x.visits*8))}px`}}/>)}</span></div></section>;
+  useEffect(() => {
+    if (modal !== "scan") return;
+    let scanner: {
+      stop: () => Promise<void>;
+      clear: () => void;
+      getState: () => number;
+    } | null = null;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { Html5Qrcode } = await import("html5-qrcode");
+        if (cancelled) return;
+        const instance = new Html5Qrcode("qr-reader");
+        scanner = instance;
+        await instance.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 240, height: 240 } },
+          (text) => {
+            try {
+              const payload = JSON.parse(text);
+              if (payload.room !== session?.roomCode)
+                throw new Error("QR bukan dari ruang ini");
+              if (payload.kind === "ORANG KAYA-property") {
+                if (!game?.properties.some((p) => p.id === payload.propertyId))
+                  throw new Error("Properti tidak ditemukan");
+                setScannedPropertyId(String(payload.propertyId));
+                setModal("propertyScan");
+                tell("Properti terbaca. Periksa tindakan yang tersedia.");
+                return;
+              }
+              if (payload.kind !== "ORANG KAYA-payment")
+                throw new Error("QR tidak dikenali");
+              if (payload.playerId === session?.playerId)
+                throw new Error("Tidak dapat membayar diri sendiri");
+              setTarget(String(payload.playerId));
+              if (Number(payload.amount) > 0)
+                setAmount(String(Math.trunc(Number(payload.amount))));
+              setNote(`Pembayaran QR ke ${String(payload.name || "pemain")}`);
+              setModal("pay");
+              tell("QR terbaca. Periksa lalu konfirmasi pembayaran.");
+            } catch (e) {
+              tell((e as Error).message);
+            }
+          },
+          () => {},
+        );
+      } catch (e) {
+        tell(
+          "Kamera tidak dapat dibuka. Pastikan izin kamera diberikan dan website memakai HTTPS.",
+        );
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (!scanner) return;
+      const state = scanner.getState();
+      if (state === 2 || state === 3)
+        scanner
+          .stop()
+          .catch(() => {})
+          .finally(() => scanner?.clear());
+      else scanner.clear();
+    };
+  }, [modal, session, game]);
 
-  if(loginStatus==="loading")return <main className="auth-loading"><div className="brand"><span className="brand-mark">M</span><span>MONOPOLY<small>DIGITAL</small></span></div><p>Menyiapkan akun...</p></main>;
+  const stats = (
+    <section className="public-stats">
+      <div>
+        <small>Akun terdaftar</small>
+        <b>{analytics?.summary.total_users ?? 0}</b>
+      </div>
+      <div>
+        <small>Akun aktif</small>
+        <b>{analytics?.summary.active_accounts ?? 0}</b>
+      </div>
+      <div>
+        <small>Aktif 30 hari</small>
+        <b>{analytics?.summary.active_30d ?? 0}</b>
+      </div>
+      <div>
+        <small>Aktif hari ini</small>
+        <b>{analytics?.summary.active_today ?? 0}</b>
+      </div>
+      <div className="visit-chart">
+        <span>
+          <small>Kunjungan 7 hari terakhir</small>
+          <b>{analytics?.daily.reduce((a, x) => a + x.visits, 0) ?? 0}</b>
+        </span>
+        <span className="bars">
+          {(analytics?.daily || []).map((x) => (
+            <i
+              key={x.date}
+              title={`${x.date}: ${x.visits} kunjungan`}
+              style={{ height: `${Math.max(8, Math.min(56, x.visits * 8))}px` }}
+            />
+          ))}
+        </span>
+      </div>
+    </section>
+  );
 
-  if(loginStatus==="unauthenticated")return <main className="landing"><nav><div className="brand"><span className="brand-mark">M</span><span>MONOPOLY<small>DIGITAL</small></span></div><span className="demo-chip">Uang permainan • bukan uang asli</span></nav><section className="hero auth-hero"><div className="hero-copy"><p className="eyebrow">MONOPOLY DIGITAL INDONESIA</p><h1>Masuk, bermain, dan <em>pantau saldo.</em></h1><p>Gunakan akun Google agar identitas dan riwayat penggunaan Anda tersimpan aman pada satu akun.</p><button className="google-login" onClick={()=>signIn("google")}><b>G</b><span>Masuk dengan Google</span></button><small className="login-note">Login diperlukan untuk membuat atau bergabung ke ruang permainan.</small></div><div className="board-art"><div className="board-center"><b>MONOPOLY</b><span>DIGITAL BANK</span></div>{["GO","🏠","?","🚂","💎","🏛","⚡","🔒"].map((x,i)=><i key={i} style={{transform:`rotate(${i*45}deg) translateY(-142px) rotate(-${i*45}deg)`}}>{x}</i>)}</div></section>{stats}</main>;
+  if (loginStatus === "loading")
+    return (
+      <main className="auth-loading">
+        <div className="brand">
+          <span className="brand-mark">M</span>
+          <span>
+            ORANG KAYA<small>DIGITAL</small>
+          </span>
+        </div>
+        <p>Menyiapkan akun...</p>
+      </main>
+    );
 
-  if(!session||!game) return <main className="landing">
-    <nav><div className="brand"><span className="brand-mark">M</span><span>MONOPOLY<small>DIGITAL</small></span></div><div className="account-chip">{login?.user?.image&&<img src={login.user.image} alt=""/>}<span><b>{login?.user?.name}</b><small>{login?.user?.email}</small></span><button onClick={()=>signOut()}>Keluar akun</button></div></nav>
-    <section className="hero">
-      <div className="hero-copy"><p className="eyebrow">PENDAMPING PAPAN MONOPOLY</p><h1>Dompet digital untuk <em>serunya satu meja.</em></h1><p>Tak perlu lagi membagi uang kertas. Buat ruang, ajak teman lewat kode, lalu bayar sewa dan transaksi bank dari HP masing-masing.</p>
-      {mode==="home"?<div className="hero-actions"><button className="primary" onClick={()=>setMode("create")}>Buat permainan</button><button className="secondary" onClick={()=>setMode("join")}>Gabung dengan kode</button></div>:
-      <div className="join-card"><button className="back" onClick={()=>setMode("home")}>← Kembali</button><h2>{mode==="create"?"Buat ruang baru":"Gabung permainan"}</h2><label>Nama pemain<input autoFocus value={name} maxLength={18} onChange={e=>setName(e.target.value)} placeholder="Contoh: Iska"/></label>{mode==="join"&&<label>Kode ruang<input value={code} maxLength={6} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="Contoh: MAJU42"/></label>}<div className="token-row">{TOKENS.map(t=><button key={t} className={token===t?"selected":""} onClick={()=>setToken(t)}>{t}</button>)}</div><button className="primary wide" disabled={busy} onClick={()=>start(mode)}>{busy?"Menyiapkan...":mode==="create"?"Buat & jadi bankir":"Masuk ke ruang"}</button></div>}
-      </div><div className="board-art"><div className="board-center"><b>MONOPOLY</b><span>DIGITAL BANK</span></div>{["GO","🏠","?","🚂","💎","🏛","⚡","🔒"].map((x,i)=><i key={i} style={{transform:`rotate(${i*45}deg) translateY(-142px) rotate(-${i*45}deg)`}}>{x}</i>)}</div>
-    </section><section className="how"><div><b>①</b><span>Buat ruang</span></div><div><b>②</b><span>Bagikan kode</span></div><div><b>③</b><span>Main dari HP</span></div></section>{stats}{toast&&<div className="toast">{toast}</div>}
-  </main>;
+  if (loginStatus === "unauthenticated")
+    return (
+      <main className="landing">
+        <nav>
+          <div className="brand">
+            <span className="brand-mark">M</span>
+            <span>
+              ORANG KAYA<small>DIGITAL</small>
+            </span>
+          </div>
+          <span className="demo-chip">Uang permainan • bukan uang asli</span>
+        </nav>
+        <section className="hero auth-hero">
+          <div className="hero-copy">
+            <p className="eyebrow">ORANG KAYA DIGITAL INDONESIA</p>
+            <h1>
+              Masuk, bermain, dan <em>pantau saldo.</em>
+            </h1>
+            <p>
+              Gunakan akun Google agar identitas dan riwayat penggunaan Anda
+              tersimpan aman pada satu akun.
+            </p>
+            <button className="google-login" onClick={() => signIn("google")}>
+              <b>G</b>
+              <span>Masuk dengan Google</span>
+            </button>
+            <small className="login-note">
+              Login diperlukan untuk membuat atau bergabung ke ruang permainan.
+            </small>
+          </div>
+          <div className="board-art">
+            <div className="board-center">
+              <b>ORANG KAYA</b>
+              <span>DIGITAL BANK</span>
+            </div>
+            {["GO", "🏠", "?", "🚂", "💎", "🏛", "⚡", "🔒"].map((x, i) => (
+              <i
+                key={i}
+                style={{
+                  transform: `rotate(${i * 45}deg) translateY(-142px) rotate(-${i * 45}deg)`,
+                }}
+              >
+                {x}
+              </i>
+            ))}
+          </div>
+        </section>
+        {stats}
+      </main>
+    );
 
-  const rupiah = (n:number) => `${game.settings.currency_symbol || "M"}${Number(n||0).toLocaleString("id-ID")}`;
-  const me=game.players.find(p=>p.id===session.playerId)!; const isHost=!!me?.is_host;
-  const pending=game.transactions.filter(t=>t.status==="pending"); const total=game.players.reduce((a,p)=>a+p.balance,0);
-  const playerName=(id:string|null)=>id?game.players.find(p=>p.id===id)?.name||"Pemain":"Bank";
-  const ownsGroup=(p:Property)=>{const group=game.properties.filter(x=>x.group_name===p.group_name);return group.length>1&&p.house_price>0&&group.every(x=>x.owner_player_id===p.owner_player_id)&&!!p.owner_player_id};
-  const currentRent=(p:Property)=>p.houses===5?p.rent_hotel:p.houses>0?(p[`rent_${p.houses}` as keyof Property] as number||p.rent):(ownsGroup(p)?p.rent*2:p.rent);
-  const buildingLabel=(p:Property)=>p.houses===5?"🏨 1 hotel":p.houses>0?`🏠 ${p.houses} rumah`:"Tanah kosong";
-  const scannedProperty=game.properties.find(p=>p.id===scannedPropertyId)||null;
-  const propertyForm=(f:FormData,id?:string)=>({id,name:f.get("name"),group_name:f.get("group_name"),price:Number(f.get("price")),sell_price:Number(f.get("sell_price")),rent:Number(f.get("rent")),house_price:Number(f.get("house_price")),hotel_price:Number(f.get("hotel_price")),rent_1:Number(f.get("rent_1")),rent_2:Number(f.get("rent_2")),rent_3:Number(f.get("rent_3")),rent_4:Number(f.get("rent_4")),rent_hotel:Number(f.get("rent_hotel"))});
-  const boardPosition=(position:number):React.CSSProperties=>{if(position===0)return{gridColumn:11,gridRow:11};if(position<10)return{gridColumn:11-position,gridRow:11};if(position===10)return{gridColumn:1,gridRow:11};if(position<20)return{gridColumn:1,gridRow:21-position};if(position===20)return{gridColumn:1,gridRow:1};if(position<30)return{gridColumn:position-19,gridRow:1};if(position===30)return{gridColumn:11,gridRow:1};return{gridColumn:11,gridRow:position-29}};
-  return <main className="app-shell"><header className="topbar"><div className="brand"><span className="brand-mark">M</span><span>MONOPOLY<small>DIGITAL</small></span></div><div className="room-pill"><span className="live-dot"/> {game.room.code}<button onClick={()=>{navigator.clipboard?.writeText(game.room.code);tell("Kode ruang disalin")}}>Salin</button></div><button className="exit" onClick={leave}>Keluar</button></header>
-  <div className="game-layout"><section className="main-column"><div className="balance-card"><div><p className="eyebrow">SALDO SAYA</p><h1>{rupiah(me.balance)}</h1><p>{me.token} {me.name} {isHost&&"• Bankir"}</p></div><div className="money-art"><span>M</span><b>500</b></div></div>
-  <div className="quick-actions"><button onClick={()=>setModal("pay")}><span className="action-icon red">↗</span><b>Bayar</b><small>Pemain / bank</small></button><button onClick={()=>setModal("scan")}><span className="action-icon scan-icon">▣</span><b>Scan Bayar</b><small>Pakai kamera</small></button><button onClick={()=>setModal("qr")}><span className="action-icon blue">⌗</span><b>QR Saya</b><small>Terima cepat</small></button><button onClick={()=>act({action:"go"},"Gaji GO berhasil diajukan")}><span className="action-icon gold">GO</span><b>Lewati GO</b><small>Terima {rupiah(game.settings.go_salary)}</small></button><button onClick={()=>setModal("card")}><span className="action-icon green">?</span><b>Ambil Kartu</b><small>Kesempatan/dana</small></button></div>
-  {pending.length>0&&<section className="panel approvals"><div className="panel-title"><div><p className="eyebrow">MENUNGGU BANKIR</p><h2>{pending.length} transaksi perlu persetujuan</h2></div></div>{pending.map(t=><article key={t.id}><div><b>{t.note}</b><small>{playerName(t.from_player_id)} → {playerName(t.to_player_id)} • {rupiah(t.amount)}</small></div>{isHost?<div><button onClick={()=>act({action:"approve",transactionId:t.id,approve:true},"Transaksi disetujui")}>Setujui</button><button className="deny" onClick={()=>act({action:"approve",transactionId:t.id,approve:false},"Transaksi ditolak")}>Tolak</button></div>:<span className="waiting">Menunggu</span>}</article>)}</section>}
-  <section className="panel"><div className="panel-title"><div><p className="eyebrow">AKTIVITAS LIVE</p><h2>Riwayat transaksi</h2></div><span className="sync">● Sinkron</span></div><div className="activity-list">{game.transactions.filter(t=>t.status!=="pending").slice(0,12).map(t=>{const incoming=t.to_player_id===me.id||(t.to_player_id===null&&t.from_player_id!==me.id);return <article key={t.id}><span className={`log-icon ${incoming?"in":"out"}`}>{incoming?"↓":"↑"}</span><div><b>{t.note}</b><small>{playerName(t.from_player_id)} → {playerName(t.to_player_id)}</small></div><div className={`log-amount ${incoming?"in":"out"}`}><b>{t.status==="rejected"?"Ditolak":rupiah(t.amount)}</b><small>{new Date(t.created_at).toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit"})}</small></div></article>})}</div></section></section>
-  <aside className="side-column"><section className="panel"><div className="panel-title"><div><p className="eyebrow">PEMAIN</p><h2>{game.players.length} pemain</h2></div><span className="turn-badge">Giliran {game.room.turn}</span></div><div className="players-list">{game.players.map(p=><article key={p.id} className={p.id===me.id?"active-player":""}><span className="avatar">{p.token}</span><div><b>{p.name}{p.id===me.id&&<em>Kamu</em>}</b><small>{p.is_host?"Bankir":"Terhubung"}</small></div><strong>{rupiah(p.balance)}</strong></article>)}</div>{isHost&&<button className="panel-cta" disabled={!game.players.some(p=>p.id!==me.id)} onClick={()=>{const recipient=game.players.find(p=>p.id!==me.id);if(recipient)setTarget(recipient.id);setModal("bank")}}>Kelola bank</button>}</section>
-  <section className="bank-card"><div><p className="eyebrow">BANK MONOPOLY</p><h3>Ruang {game.room.code}</h3></div><div className="bank-stats"><div><small>Uang pemain</small><b>{rupiah(total)}</b></div><div><small>Transaksi</small><b>{game.transactions.length}</b></div></div><button onClick={()=>{navigator.clipboard?.writeText(game.room.code);tell("Bagikan kode "+game.room.code)}}>Undang pemain →</button>{isHost&&<button className="admin-launch" onClick={()=>setModal("admin")}>⚙ Buka panel admin</button>}</section>
-  <section className="panel property-mini"><div className="panel-title"><div><p className="eyebrow">PROPERTI</p><h2>Kepemilikan</h2></div><button onClick={()=>setModal("property")}>Kelola semua</button></div>{game.properties.filter(p=>p.owner_player_id).slice(0,4).map(p=><article key={p.id}><span>{p.houses===5?"🏨":"🏠"}</span><div><b>{p.name}</b><small>{playerName(p.owner_player_id)} • {buildingLabel(p)} • Sewa {rupiah(currentRent(p))}</small></div></article>)}</section></aside></div>
-  {modal&&<div className="modal-backdrop" onMouseDown={()=>setModal(null)}><section className={`modal ${modal==="admin"?"admin-modal":""}`} onMouseDown={e=>e.stopPropagation()}><button className="modal-close" onClick={()=>setModal(null)}>×</button>
-  {modal==="admin"?<div className="admin-studio"><p className="eyebrow">KHUSUS BANKIR</p><h2>Panel admin permainan</h2><div className="admin-tabs">{([['rules','Aturan'],['spaces','Petak'],['properties','Properti'],['cards','Kartu'],['board','Cetak Papan']] as const).map(([k,l])=><button className={adminTab===k?'active':''} key={k} onClick={()=>setAdminTab(k)}>{l}</button>)}</div>
-  {adminTab==="rules"&&<form className="admin-form" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);adminAct({action:"save_settings",settings:{starting_balance:Number(f.get("starting_balance")),go_salary:Number(f.get("go_salary")),max_players:Number(f.get("max_players")),currency_symbol:f.get("currency_symbol"),require_bank_approval:f.get("require_bank_approval")==="on"}},"Aturan permainan disimpan")}}><div className="form-grid"><label>Saldo awal<input name="starting_balance" type="number" defaultValue={game.settings.starting_balance}/></label><label>Gaji melewati GO<input name="go_salary" type="number" defaultValue={game.settings.go_salary}/></label><label>Maksimal pemain<input name="max_players" type="number" min="2" max="12" defaultValue={game.settings.max_players}/></label><label>Simbol mata uang<input name="currency_symbol" maxLength={3} defaultValue={game.settings.currency_symbol}/></label></div><label className="check-row"><input name="require_bank_approval" type="checkbox" defaultChecked={!!game.settings.require_bank_approval}/> Transaksi kartu, GO, dan properti perlu persetujuan bankir</label><button className="primary" disabled={busy}>Simpan aturan</button></form>}
-  {adminTab==="spaces"&&<div className="admin-list">{game.spaces.map(s=><form key={s.id} onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);adminAct({action:"save_space",space:{id:s.id,name:f.get("name"),type:f.get("type"),property_id:f.get("property_id")||null,color:f.get("color")}},`Petak ${s.position} disimpan`)}}><b className="position">{s.position}</b><input name="name" defaultValue={s.name}/><select name="type" defaultValue={s.type}>{['go','property','chance','fund','tax','jail','goto_jail','parking','custom'].map(x=><option key={x}>{x}</option>)}</select><select name="property_id" defaultValue={s.property_id||''}><option value="">Tanpa properti</option>{game.properties.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select><input className="color" name="color" type="color" defaultValue={s.color}/><button disabled={busy}>Simpan</button></form>)}</div>}
-  {adminTab==="properties"&&<div className="property-admin"><div className="rule-note"><b>Aturan bangunan otomatis</b><span>Harus memiliki satu kompleks penuh, dibangun/dijual merata, maksimal 4 rumah lalu 1 hotel. Sewa tanah kosong menjadi 2× saat satu kompleks dikuasai.</span></div><form className="property-editor new-property" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);adminAct({action:"save_property",property:propertyForm(f)},"Properti baru ditambahkan");e.currentTarget.reset()}}><h3>+ Properti baru</h3><div className="property-fields"><label>Nama<input name="name" required/></label><label>Kompleks / warna<input name="group_name" required/></label><label>Harga beli<input name="price" type="number" required/></label><label>Harga jual ke bank<input name="sell_price" type="number" required/></label><label>Sewa tanah<input name="rent" type="number" required/></label><label>Harga rumah<input name="house_price" type="number" required/></label><label>Harga hotel<input name="hotel_price" type="number" required/></label><label>Sewa 1 rumah<input name="rent_1" type="number" required/></label><label>Sewa 2 rumah<input name="rent_2" type="number" required/></label><label>Sewa 3 rumah<input name="rent_3" type="number" required/></label><label>Sewa 4 rumah<input name="rent_4" type="number" required/></label><label>Sewa hotel<input name="rent_hotel" type="number" required/></label></div><button>Tambah properti</button></form>{game.properties.map(p=><form className="property-editor" key={p.id} onSubmit={e=>{e.preventDefault();adminAct({action:"save_property",property:propertyForm(new FormData(e.currentTarget),p.id)},"Aturan properti disimpan")}}><div className="property-editor-head"><div><b>{p.name}</b><small>{p.group_name} • {buildingLabel(p)}</small></div><div><button>Simpan</button>{!p.owner_player_id&&<button type="button" className="danger" onClick={()=>adminAct({action:"delete_property",id:p.id},"Properti dihapus")}>Hapus</button>}</div></div><div className="property-fields"><label>Nama<input name="name" defaultValue={p.name}/></label><label>Kompleks / warna<input name="group_name" defaultValue={p.group_name}/></label><label>Harga beli<input name="price" type="number" defaultValue={p.price}/></label><label>Harga jual ke bank<input name="sell_price" type="number" defaultValue={p.sell_price||Math.floor(p.price/2)}/></label><label>Sewa tanah<input name="rent" type="number" defaultValue={p.rent}/></label><label>Harga rumah<input name="house_price" type="number" defaultValue={p.house_price}/></label><label>Harga hotel<input name="hotel_price" type="number" defaultValue={p.hotel_price}/></label><label>Sewa 1 rumah<input name="rent_1" type="number" defaultValue={p.rent_1}/></label><label>Sewa 2 rumah<input name="rent_2" type="number" defaultValue={p.rent_2}/></label><label>Sewa 3 rumah<input name="rent_3" type="number" defaultValue={p.rent_3}/></label><label>Sewa 4 rumah<input name="rent_4" type="number" defaultValue={p.rent_4}/></label><label>Sewa hotel<input name="rent_hotel" type="number" defaultValue={p.rent_hotel}/></label></div></form>)}</div>}
-  {adminTab==="cards"&&<div className="admin-list cards-admin"><form className="new-row" onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);adminAct({action:"save_card",card:{deck:f.get("deck"),title:f.get("title"),description:f.get("description"),amount:Number(f.get("amount")),enabled:true}},"Kartu baru ditambahkan");e.currentTarget.reset()}}><select name="deck"><option value="chance">Kesempatan</option><option value="fund">Dana Umum</option></select><input name="title" placeholder="Judul kartu" required/><input name="description" placeholder="Instruksi kartu" required/><input name="amount" type="number" placeholder="+ terima / - bayar"/><button>Tambah</button></form>{game.cards.map(c=><form key={c.id} onSubmit={e=>{e.preventDefault();const f=new FormData(e.currentTarget);adminAct({action:"save_card",card:{id:c.id,deck:f.get("deck"),title:f.get("title"),description:f.get("description"),amount:Number(f.get("amount")),enabled:f.get("enabled")==="on"}},"Kartu disimpan")}}><select name="deck" defaultValue={c.deck}><option value="chance">Kesempatan</option><option value="fund">Dana Umum</option></select><input name="title" defaultValue={c.title}/><input name="description" defaultValue={c.description}/><input name="amount" type="number" defaultValue={c.amount}/><label className="mini-check"><input name="enabled" type="checkbox" defaultChecked={!!c.enabled}/> Aktif</label><button>Simpan</button><button type="button" className="danger" onClick={()=>adminAct({action:"delete_card",id:c.id},"Kartu dihapus")}>Hapus</button></form>)}</div>}
-  {adminTab==="board"&&<div className="board-export"><div className="board-export-actions"><div><b>Layout papan interaktif 40 petak</b><small>Setiap properti memiliki QR unik untuk beli, bangun rumah/hotel, atau bayar sewa.</small></div><button className="primary" disabled={busy} onClick={downloadBoard}>{busy?"Membuat gambar...":"Unduh PNG resolusi tinggi"}</button></div><div className="print-board-wrap"><div className="print-board" ref={boardRef}><div className="board-inner-line"/><div className="print-board-center"><div className="board-edition">DIGITAL PROPERTY EDITION</div><span>MONOPOLI</span><b>INDONESIA</b><small>Ruang {game.room.code} • Scan petak dengan menu Scan Bayar</small><div className="board-scan-guide"><strong>SCAN • CEK • KONFIRMASI</strong><small>QR otomatis menentukan beli, bangun, atau sewa</small></div><div className="board-decks"><i><b>?</b><small>KESEMPATAN</small></i><i><b>🏛</b><small>DANA UMUM</small></i></div></div>{game.spaces.map(s=>{const p=game.properties.find(x=>x.id===s.property_id);return <div key={s.id} className={`print-space space-${s.type}`} style={{...boardPosition(s.position),"--space-color":s.color||"#efe9dc"} as React.CSSProperties}><span className="space-color"/><small className="space-number">{s.position+1}</small><b>{s.name}</b>{p&&<div className="property-space-qr"><QRCodeSVG value={JSON.stringify({kind:"monopoly-property",version:1,room:game.room.code,propertyId:p.id})} size={52} level="M" marginSize={1}/></div>}<em>{p?`${rupiah(p.price)} • Sewa ${p.group_name==="Utilitas"?"4×/10× dadu":rupiah(p.rent)}`:s.type.replaceAll("_"," ")}</em></div>})}</div></div><p className="board-hint">Cetak dengan kualitas tinggi. QR bersifat tetap: keputusan beli, membangun, atau membayar sewa selalu mengikuti data permainan terbaru.</p></div>}</div>:
-  modal==="qr"?<><p className="eyebrow">QR PEMBAYARAN INTERNAL</p><h2>Bayar ke {me.name}</h2><label>Nominal permintaan (opsional)<input inputMode="numeric" value={qrAmount} onChange={e=>setQrAmount(e.target.value.replace(/\D/g,""))} placeholder="Kosongkan agar pembayar mengisi"/></label><div className="real-qr"><QRCodeSVG value={JSON.stringify({kind:"monopoly-payment",version:1,room:game.room.code,playerId:me.id,name:me.name,amount:Number(qrAmount)||0})} size={220} level="M" marginSize={2}/><span>{me.token}</span></div><div className="pay-code">{game.room.code} • {me.id.slice(-4).toUpperCase()}</div>{Number(qrAmount)>0&&<p className="qr-request">Permintaan: <b>{rupiah(Number(qrAmount))}</b></p>}<p className="qr-note">Pemain lain membuka Scan Bayar, mengarahkan kamera ke QR ini, lalu mengonfirmasi. Bukan QRIS dan tidak memakai uang asli.</p></>:
-  modal==="scan"?<><p className="eyebrow">PEMINDAI MONOPOLY</p><h2>Arahkan kamera ke QR</h2><div id="qr-reader" className="qr-reader"/><p className="qr-note">Dapat membaca QR pemain dan QR properti pada papan di ruang yang sama.</p></>:
-  modal==="propertyScan"&&scannedProperty?<><p className="eyebrow">QR PROPERTI • {scannedProperty.group_name}</p><div className="scan-property-card"><span className="scan-property-color" style={{background:game.spaces.find(s=>s.property_id===scannedProperty.id)?.color||"#17352d"}}/><h2>{scannedProperty.name}</h2><p>{buildingLabel(scannedProperty)} • Sewa aktif <b>{rupiah(currentRent(scannedProperty))}</b></p><div className="scan-property-facts"><span><small>Harga beli</small><b>{rupiah(scannedProperty.price)}</b></span><span><small>Pemilik</small><b>{scannedProperty.owner_player_id?playerName(scannedProperty.owner_player_id):"Bank"}</b></span></div></div>{!scannedProperty.owner_player_id?<><p className="scan-decision">Properti belum dimiliki. Ajukan pembelian kepada bank?</p><button className="primary wide" disabled={busy} onClick={()=>act({action:"buy_property",propertyId:scannedProperty.id},"Pembelian diajukan")}>Konfirmasi beli • {rupiah(scannedProperty.price)}</button></>:scannedProperty.owner_player_id===me.id?<>{scannedProperty.house_price>0?<><p className="scan-decision">Ini properti Anda. Pembangunan tetap memerlukan satu kompleks penuh dan dilakukan merata.</p><button className="primary wide" disabled={busy||scannedProperty.houses>=5} onClick={()=>act({action:"build_property",propertyId:scannedProperty.id},scannedProperty.houses===4?"Hotel berhasil dibangun":"Rumah berhasil dibangun")}>{scannedProperty.houses>=5?"Properti sudah memiliki hotel":scannedProperty.houses===4?`Konfirmasi bangun hotel • ${rupiah(scannedProperty.hotel_price)}`:`Konfirmasi bangun rumah • ${rupiah(scannedProperty.house_price)}`}</button></>:<p className="scan-decision">Properti khusus ini milik Anda dan tidak dapat dibangun rumah.</p>}</>:<><p className="scan-decision">Properti milik {playerName(scannedProperty.owner_player_id)}. Sewa dihitung otomatis sesuai bangunan saat ini.</p><button className="primary wide" disabled={busy} onClick={()=>act({action:"pay_rent",propertyId:scannedProperty.id},"Sewa berhasil dibayar")}>Konfirmasi bayar sewa • {rupiah(currentRent(scannedProperty))}</button></>}</>:
-  modal==="property"?<><p className="eyebrow">SERTIFIKAT & BANGUNAN</p><h2>Kelola properti</h2><div className="property-list detailed">{game.properties.map(p=>{const mine=p.owner_player_id===me.id,canBuild=p.house_price>0;return <article key={p.id}><div className="property-info"><b>{p.name}</b><small>{p.group_name} • {canBuild?buildingLabel(p):"Properti khusus"}</small><small>Harga {rupiah(p.price)} • Sewa aktif <strong>{rupiah(currentRent(p))}</strong>{ownsGroup(p)&&p.houses===0?" (monopoli 2×)":""}</small></div><div className="property-actions">{!p.owner_player_id?<button disabled={busy} onClick={()=>act({action:"buy_property",propertyId:p.id},"Pembelian diajukan")}>Beli {rupiah(p.price)}</button>:mine?<>{canBuild&&<button disabled={busy||p.houses>=5} onClick={()=>act({action:"build_property",propertyId:p.id},p.houses===4?"Hotel berhasil dibangun":"Rumah berhasil dibangun")}>{p.houses===4?`Bangun hotel ${rupiah(p.hotel_price)}`:`Bangun rumah ${rupiah(p.house_price)}`}</button>}{p.houses>0&&<button className="outline-action" disabled={busy} onClick={()=>act({action:"sell_building",propertyId:p.id},"Bangunan dijual ke bank")}>Jual bangunan</button>}<button className="danger-action" disabled={busy} onClick={()=>act({action:"sell_property",propertyId:p.id},"Properti dijual ke bank")}>Jual tanah {rupiah(p.sell_price||Math.floor(p.price/2))}</button></>:<button disabled={busy} onClick={()=>act({action:"pay_rent",propertyId:p.id},"Sewa berhasil dibayar")}>Bayar sewa {rupiah(currentRent(p))}</button>}<small className="owner-label">{p.owner_player_id?`Pemilik: ${playerName(p.owner_player_id)}`:"Milik bank"}</small></div></article>})}</div></>:
-  modal==="card"?<><p className="eyebrow">KARTU DIGITAL</p><h2>Ambil satu kartu</h2><div className="card-choice"><button onClick={()=>act({action:"draw_card",deck:"chance"},"Kartu kesempatan diambil")}>?<b>Kesempatan</b></button><button onClick={()=>act({action:"draw_card",deck:"fund"},"Kartu dana umum diambil")}>🏛<b>Dana Umum</b></button></div></>:
-  <><p className="eyebrow">{modal==="bank"?"PANEL BANKIR":"PEMBAYARAN"}</p><h2>{modal==="bank"?"Kirim dana dari bank":"Bayar pemain atau bank"}</h2><label>Tujuan<select value={target} onChange={e=>setTarget(e.target.value)}>{modal!=="bank"&&<option value="bank">🏛 Bank</option>}{game.players.filter(p=>p.id!==me.id).map(p=><option value={p.id} key={p.id}>{p.token} {p.name}</option>)}</select></label><label>Nominal (M)<input inputMode="numeric" value={amount} onChange={e=>setAmount(e.target.value.replace(/\D/g,""))}/></label><label>Keterangan<input value={note} onChange={e=>setNote(e.target.value)}/></label><button disabled={busy||(modal==="bank"&&target==="bank")} className="primary wide" onClick={()=>act({action:modal==="bank"?"bank_transfer":"pay",target,amount:Number(amount),note},modal==="bank"?"Dana bank dikirim":"Pembayaran berhasil")}>{busy?"Memproses...":"Konfirmasi "+rupiah(Number(amount)||0)}</button></>}
-  </section></div>}{toast&&<div className="toast">✓ {toast}</div>}</main>
+  if (!session || !game)
+    return (
+      <main className="landing">
+        <nav>
+          <div className="brand">
+            <span className="brand-mark">M</span>
+            <span>
+              ORANG KAYA<small>DIGITAL</small>
+            </span>
+          </div>
+          <div className="account-chip">
+            {login?.user?.image && <img src={login.user.image} alt="" />}
+            <span>
+              <b>{login?.user?.name}</b>
+              <small>{login?.user?.email}</small>
+            </span>
+            <button onClick={() => signOut()}>Keluar akun</button>
+          </div>
+        </nav>
+        <section className="hero">
+          <div className="hero-copy">
+            <p className="eyebrow">PENDAMPING PAPAN ORANG KAYA</p>
+            <h1>
+              Dompet digital untuk <em>serunya satu meja.</em>
+            </h1>
+            <p>
+              Tak perlu lagi membagi uang kertas. Buat ruang, ajak teman lewat
+              kode, lalu bayar sewa dan transaksi bank dari HP masing-masing.
+            </p>
+            {mode === "home" ? (
+              <div className="hero-actions">
+                <button className="primary" onClick={() => setMode("create")}>
+                  Buat permainan
+                </button>
+                <button className="secondary" onClick={() => setMode("join")}>
+                  Gabung dengan kode
+                </button>
+              </div>
+            ) : (
+              <div className="join-card">
+                <button className="back" onClick={() => setMode("home")}>
+                  ← Kembali
+                </button>
+                <h2>
+                  {mode === "create" ? "Buat ruang baru" : "Gabung permainan"}
+                </h2>
+                <label>
+                  Nama pemain
+                  <input
+                    autoFocus
+                    value={name}
+                    maxLength={18}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Contoh: Iska"
+                  />
+                </label>
+                {mode === "join" && (
+                  <label>
+                    Kode ruang
+                    <input
+                      value={code}
+                      maxLength={6}
+                      onChange={(e) => setCode(e.target.value.toUpperCase())}
+                      placeholder="Contoh: MAJU42"
+                    />
+                  </label>
+                )}
+                <div className="token-row">
+                  {TOKENS.map((t) => (
+                    <button
+                      key={t}
+                      className={token === t ? "selected" : ""}
+                      onClick={() => setToken(t)}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  className="primary wide"
+                  disabled={busy}
+                  onClick={() => start(mode)}
+                >
+                  {busy
+                    ? "Menyiapkan..."
+                    : mode === "create"
+                      ? "Buat & jadi bankir"
+                      : "Masuk ke ruang"}
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="board-art">
+            <div className="board-center">
+              <b>ORANG KAYA</b>
+              <span>DIGITAL BANK</span>
+            </div>
+            {["GO", "🏠", "?", "🚂", "💎", "🏛", "⚡", "🔒"].map((x, i) => (
+              <i
+                key={i}
+                style={{
+                  transform: `rotate(${i * 45}deg) translateY(-142px) rotate(-${i * 45}deg)`,
+                }}
+              >
+                {x}
+              </i>
+            ))}
+          </div>
+        </section>
+        <section className="how">
+          <div>
+            <b>①</b>
+            <span>Buat ruang</span>
+          </div>
+          <div>
+            <b>②</b>
+            <span>Bagikan kode</span>
+          </div>
+          <div>
+            <b>③</b>
+            <span>Main dari HP</span>
+          </div>
+        </section>
+        {stats}
+        {toast && <div className="toast">{toast}</div>}
+      </main>
+    );
+
+  const rupiah = (n: number) =>
+    `${game.settings.currency_symbol || "M"}${Number(n || 0).toLocaleString("id-ID")}`;
+  const me = game.players.find((p) => p.id === session.playerId)!;
+  const isHost = !!me?.is_host;
+  const pending = game.transactions.filter((t) => t.status === "pending");
+  const total = game.players.reduce((a, p) => a + p.balance, 0);
+  const playerName = (id: string | null) =>
+    id ? game.players.find((p) => p.id === id)?.name || "Pemain" : "Bank";
+  const ownsGroup = (p: Property) => {
+    const group = game.properties.filter((x) => x.group_name === p.group_name);
+    return (
+      group.length > 1 &&
+      p.house_price > 0 &&
+      group.every((x) => x.owner_player_id === p.owner_player_id) &&
+      !!p.owner_player_id
+    );
+  };
+  const currentRent = (p: Property) =>
+    p.houses === 5
+      ? p.rent_hotel
+      : p.houses > 0
+        ? (p[`rent_${p.houses}` as keyof Property] as number) || p.rent
+        : ownsGroup(p)
+          ? p.rent * 2
+          : p.rent;
+  const buildingLabel = (p: Property) =>
+    p.houses === 5
+      ? "🏨 1 hotel"
+      : p.houses > 0
+        ? `🏠 ${p.houses} rumah`
+        : "Tanah kosong";
+  const scannedProperty =
+    game.properties.find((p) => p.id === scannedPropertyId) || null;
+  const propertyForm = (f: FormData, id?: string) => ({
+    id,
+    name: f.get("name"),
+    group_name: f.get("group_name"),
+    price: Number(f.get("price")),
+    sell_price: Number(f.get("sell_price")),
+    rent: Number(f.get("rent")),
+    house_price: Number(f.get("house_price")),
+    hotel_price: Number(f.get("hotel_price")),
+    rent_1: Number(f.get("rent_1")),
+    rent_2: Number(f.get("rent_2")),
+    rent_3: Number(f.get("rent_3")),
+    rent_4: Number(f.get("rent_4")),
+    rent_hotel: Number(f.get("rent_hotel")),
+  });
+  const boardPosition = (position: number): React.CSSProperties => {
+    if (position === 0) return { gridColumn: 11, gridRow: 11 };
+    if (position < 10) return { gridColumn: 11 - position, gridRow: 11 };
+    if (position === 10) return { gridColumn: 1, gridRow: 11 };
+    if (position < 20) return { gridColumn: 1, gridRow: 21 - position };
+    if (position === 20) return { gridColumn: 1, gridRow: 1 };
+    if (position < 30) return { gridColumn: position - 19, gridRow: 1 };
+    if (position === 30) return { gridColumn: 11, gridRow: 1 };
+    return { gridColumn: 11, gridRow: position - 29 };
+  };
+  return (
+    <main className="app-shell">
+      <header className="topbar">
+        <div className="brand">
+          <span className="brand-mark">M</span>
+          <span>
+            ORANG KAYA<small>DIGITAL</small>
+          </span>
+        </div>
+        <div className="room-pill">
+          <span className="live-dot" /> {game.room.code}
+          <button
+            onClick={() => {
+              navigator.clipboard?.writeText(game.room.code);
+              tell("Kode ruang disalin");
+            }}
+          >
+            Salin
+          </button>
+        </div>
+        <button className="exit" onClick={leave}>
+          Keluar
+        </button>
+      </header>
+      <div className="game-layout">
+        <section className="main-column">
+          <div className="balance-card">
+            <div>
+              <p className="eyebrow">SALDO SAYA</p>
+              <h1>{rupiah(me.balance)}</h1>
+              <p>
+                {me.token} {me.name} {isHost && "• Bankir"}
+              </p>
+            </div>
+            <div className="money-art">
+              <span>M</span>
+              <b>500</b>
+            </div>
+          </div>
+          <div className="quick-actions">
+            <button onClick={() => setModal("pay")}>
+              <span className="action-icon red">↗</span>
+              <b>Bayar</b>
+              <small>Pemain / bank</small>
+            </button>
+            <button onClick={() => setModal("scan")}>
+              <span className="action-icon scan-icon">▣</span>
+              <b>Scan Bayar</b>
+              <small>Pakai kamera</small>
+            </button>
+            <button onClick={() => setModal("qr")}>
+              <span className="action-icon blue">⌗</span>
+              <b>QR Saya</b>
+              <small>Terima cepat</small>
+            </button>
+            <button
+              onClick={() => act({ action: "go" }, "Gaji GO berhasil diajukan")}
+            >
+              <span className="action-icon gold">GO</span>
+              <b>Lewati GO</b>
+              <small>Terima {rupiah(game.settings.go_salary)}</small>
+            </button>
+            <button onClick={() => setModal("card")}>
+              <span className="action-icon green">?</span>
+              <b>Ambil Kartu</b>
+              <small>Kesempatan/dana</small>
+            </button>
+          </div>
+          {pending.length > 0 && (
+            <section className="panel approvals">
+              <div className="panel-title">
+                <div>
+                  <p className="eyebrow">MENUNGGU BANKIR</p>
+                  <h2>{pending.length} transaksi perlu persetujuan</h2>
+                </div>
+              </div>
+              {pending.map((t) => (
+                <article key={t.id}>
+                  <div>
+                    <b>{t.note}</b>
+                    <small>
+                      {playerName(t.from_player_id)} →{" "}
+                      {playerName(t.to_player_id)} • {rupiah(t.amount)}
+                    </small>
+                  </div>
+                  {isHost ? (
+                    <div>
+                      <button
+                        onClick={() =>
+                          act(
+                            {
+                              action: "approve",
+                              transactionId: t.id,
+                              approve: true,
+                            },
+                            "Transaksi disetujui",
+                          )
+                        }
+                      >
+                        Setujui
+                      </button>
+                      <button
+                        className="deny"
+                        onClick={() =>
+                          act(
+                            {
+                              action: "approve",
+                              transactionId: t.id,
+                              approve: false,
+                            },
+                            "Transaksi ditolak",
+                          )
+                        }
+                      >
+                        Tolak
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="waiting">Menunggu</span>
+                  )}
+                </article>
+              ))}
+            </section>
+          )}
+          <section className="panel">
+            <div className="panel-title">
+              <div>
+                <p className="eyebrow">AKTIVITAS LIVE</p>
+                <h2>Riwayat transaksi</h2>
+              </div>
+              <span className="sync">● Sinkron</span>
+            </div>
+            <div className="activity-list">
+              {game.transactions
+                .filter((t) => t.status !== "pending")
+                .slice(0, 12)
+                .map((t) => {
+                  const incoming =
+                    t.to_player_id === me.id ||
+                    (t.to_player_id === null && t.from_player_id !== me.id);
+                  return (
+                    <article key={t.id}>
+                      <span className={`log-icon ${incoming ? "in" : "out"}`}>
+                        {incoming ? "↓" : "↑"}
+                      </span>
+                      <div>
+                        <b>{t.note}</b>
+                        <small>
+                          {playerName(t.from_player_id)} →{" "}
+                          {playerName(t.to_player_id)}
+                        </small>
+                      </div>
+                      <div className={`log-amount ${incoming ? "in" : "out"}`}>
+                        <b>
+                          {t.status === "rejected"
+                            ? "Ditolak"
+                            : rupiah(t.amount)}
+                        </b>
+                        <small>
+                          {new Date(t.created_at).toLocaleTimeString("id-ID", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </small>
+                      </div>
+                    </article>
+                  );
+                })}
+            </div>
+          </section>
+        </section>
+        <aside className="side-column">
+          <section className="panel">
+            <div className="panel-title">
+              <div>
+                <p className="eyebrow">PEMAIN</p>
+                <h2>{game.players.length} pemain</h2>
+              </div>
+              <span className="turn-badge">Giliran {game.room.turn}</span>
+            </div>
+            <div className="players-list">
+              {game.players.map((p) => (
+                <article
+                  key={p.id}
+                  className={p.id === me.id ? "active-player" : ""}
+                >
+                  <span className="avatar">{p.token}</span>
+                  <div>
+                    <b>
+                      {p.name}
+                      {p.id === me.id && <em>Kamu</em>}
+                    </b>
+                    <small>{p.is_host ? "Bankir" : "Terhubung"}</small>
+                  </div>
+                  <strong>{rupiah(p.balance)}</strong>
+                </article>
+              ))}
+            </div>
+            {isHost && (
+              <button
+                className="panel-cta"
+                disabled={!game.players.some((p) => p.id !== me.id)}
+                onClick={() => {
+                  const recipient = game.players.find((p) => p.id !== me.id);
+                  if (recipient) setTarget(recipient.id);
+                  setModal("bank");
+                }}
+              >
+                Kelola bank
+              </button>
+            )}
+          </section>
+          <section className="bank-card">
+            <div>
+              <p className="eyebrow">BANK ORANG KAYA</p>
+              <h3>Ruang {game.room.code}</h3>
+            </div>
+            <div className="bank-stats">
+              <div>
+                <small>Uang pemain</small>
+                <b>{rupiah(total)}</b>
+              </div>
+              <div>
+                <small>Transaksi</small>
+                <b>{game.transactions.length}</b>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard?.writeText(game.room.code);
+                tell("Bagikan kode " + game.room.code);
+              }}
+            >
+              Undang pemain →
+            </button>
+            {isHost && (
+              <button
+                className="admin-launch"
+                onClick={() => setModal("admin")}
+              >
+                ⚙ Buka panel admin
+              </button>
+            )}
+          </section>
+          <section className="panel property-mini">
+            <div className="panel-title">
+              <div>
+                <p className="eyebrow">PROPERTI</p>
+                <h2>Kepemilikan</h2>
+              </div>
+              <button onClick={() => setModal("property")}>Kelola semua</button>
+            </div>
+            {game.properties
+              .filter((p) => p.owner_player_id)
+              .slice(0, 4)
+              .map((p) => (
+                <article key={p.id}>
+                  <span>{p.houses === 5 ? "🏨" : "🏠"}</span>
+                  <div>
+                    <b>{p.name}</b>
+                    <small>
+                      {playerName(p.owner_player_id)} • {buildingLabel(p)} •
+                      Sewa {rupiah(currentRent(p))}
+                    </small>
+                  </div>
+                </article>
+              ))}
+          </section>
+        </aside>
+      </div>
+      {modal && (
+        <div className="modal-backdrop" onMouseDown={() => setModal(null)}>
+          <section
+            className={`modal ${modal === "admin" ? "admin-modal" : ""}`}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <button className="modal-close" onClick={() => setModal(null)}>
+              ×
+            </button>
+            {modal === "admin" ? (
+              <div className="admin-studio">
+                <p className="eyebrow">KHUSUS BANKIR</p>
+                <h2>Panel admin permainan</h2>
+                <div className="admin-tabs">
+                  {(
+                    [
+                      ["rules", "Aturan"],
+                      ["spaces", "Petak"],
+                      ["properties", "Properti"],
+                      ["cards", "Kartu"],
+                      ["board", "Cetak Papan"],
+                    ] as const
+                  ).map(([k, l]) => (
+                    <button
+                      className={adminTab === k ? "active" : ""}
+                      key={k}
+                      onClick={() => setAdminTab(k)}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+                {adminTab === "rules" && (
+                  <form
+                    className="admin-form"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const f = new FormData(e.currentTarget);
+                      adminAct(
+                        {
+                          action: "save_settings",
+                          settings: {
+                            starting_balance: Number(f.get("starting_balance")),
+                            go_salary: Number(f.get("go_salary")),
+                            max_players: Number(f.get("max_players")),
+                            currency_symbol: f.get("currency_symbol"),
+                            require_bank_approval:
+                              f.get("require_bank_approval") === "on",
+                          },
+                        },
+                        "Aturan permainan disimpan",
+                      );
+                    }}
+                  >
+                    <div className="form-grid">
+                      <label>
+                        Saldo awal
+                        <input
+                          name="starting_balance"
+                          type="number"
+                          defaultValue={game.settings.starting_balance}
+                        />
+                      </label>
+                      <label>
+                        Gaji melewati GO
+                        <input
+                          name="go_salary"
+                          type="number"
+                          defaultValue={game.settings.go_salary}
+                        />
+                      </label>
+                      <label>
+                        Maksimal pemain
+                        <input
+                          name="max_players"
+                          type="number"
+                          min="2"
+                          max="12"
+                          defaultValue={game.settings.max_players}
+                        />
+                      </label>
+                      <label>
+                        Simbol mata uang
+                        <input
+                          name="currency_symbol"
+                          maxLength={3}
+                          defaultValue={game.settings.currency_symbol}
+                        />
+                      </label>
+                    </div>
+                    <label className="check-row">
+                      <input
+                        name="require_bank_approval"
+                        type="checkbox"
+                        defaultChecked={!!game.settings.require_bank_approval}
+                      />{" "}
+                      Transaksi kartu, GO, dan properti perlu persetujuan bankir
+                    </label>
+                    <button className="primary" disabled={busy}>
+                      Simpan aturan
+                    </button>
+                  </form>
+                )}
+                {adminTab === "spaces" && (
+                  <div className="admin-list">
+                    {game.spaces.map((s) => (
+                      <form
+                        key={s.id}
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const f = new FormData(e.currentTarget);
+                          adminAct(
+                            {
+                              action: "save_space",
+                              space: {
+                                id: s.id,
+                                name: f.get("name"),
+                                type: f.get("type"),
+                                property_id: f.get("property_id") || null,
+                                color: f.get("color"),
+                              },
+                            },
+                            `Petak ${s.position} disimpan`,
+                          );
+                        }}
+                      >
+                        <b className="position">{s.position}</b>
+                        <input name="name" defaultValue={s.name} />
+                        <select name="type" defaultValue={s.type}>
+                          {[
+                            "go",
+                            "property",
+                            "chance",
+                            "fund",
+                            "tax",
+                            "jail",
+                            "goto_jail",
+                            "parking",
+                            "custom",
+                          ].map((x) => (
+                            <option key={x}>{x}</option>
+                          ))}
+                        </select>
+                        <select
+                          name="property_id"
+                          defaultValue={s.property_id || ""}
+                        >
+                          <option value="">Tanpa properti</option>
+                          {game.properties.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          className="color"
+                          name="color"
+                          type="color"
+                          defaultValue={s.color}
+                        />
+                        <button disabled={busy}>Simpan</button>
+                      </form>
+                    ))}
+                  </div>
+                )}
+                {adminTab === "properties" && (
+                  <div className="property-admin">
+                    <div className="rule-note">
+                      <b>Aturan bangunan otomatis</b>
+                      <span>
+                        Harus memiliki satu kompleks penuh, dibangun/dijual
+                        merata, maksimal 4 rumah lalu 1 hotel. Sewa tanah kosong
+                        menjadi 2× saat satu kompleks dikuasai.
+                      </span>
+                    </div>
+                    <form
+                      className="property-editor new-property"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const f = new FormData(e.currentTarget);
+                        adminAct(
+                          {
+                            action: "save_property",
+                            property: propertyForm(f),
+                          },
+                          "Properti baru ditambahkan",
+                        );
+                        e.currentTarget.reset();
+                      }}
+                    >
+                      <h3>+ Properti baru</h3>
+                      <div className="property-fields">
+                        <label>
+                          Nama
+                          <input name="name" required />
+                        </label>
+                        <label>
+                          Kompleks / warna
+                          <input name="group_name" required />
+                        </label>
+                        <label>
+                          Harga beli
+                          <input name="price" type="number" required />
+                        </label>
+                        <label>
+                          Harga jual ke bank
+                          <input name="sell_price" type="number" required />
+                        </label>
+                        <label>
+                          Sewa tanah
+                          <input name="rent" type="number" required />
+                        </label>
+                        <label>
+                          Harga rumah
+                          <input name="house_price" type="number" required />
+                        </label>
+                        <label>
+                          Harga hotel
+                          <input name="hotel_price" type="number" required />
+                        </label>
+                        <label>
+                          Sewa 1 rumah
+                          <input name="rent_1" type="number" required />
+                        </label>
+                        <label>
+                          Sewa 2 rumah
+                          <input name="rent_2" type="number" required />
+                        </label>
+                        <label>
+                          Sewa 3 rumah
+                          <input name="rent_3" type="number" required />
+                        </label>
+                        <label>
+                          Sewa 4 rumah
+                          <input name="rent_4" type="number" required />
+                        </label>
+                        <label>
+                          Sewa hotel
+                          <input name="rent_hotel" type="number" required />
+                        </label>
+                      </div>
+                      <button>Tambah properti</button>
+                    </form>
+                    {game.properties.map((p) => (
+                      <form
+                        className="property-editor"
+                        key={p.id}
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          adminAct(
+                            {
+                              action: "save_property",
+                              property: propertyForm(
+                                new FormData(e.currentTarget),
+                                p.id,
+                              ),
+                            },
+                            "Aturan properti disimpan",
+                          );
+                        }}
+                      >
+                        <div className="property-editor-head">
+                          <div>
+                            <b>{p.name}</b>
+                            <small>
+                              {p.group_name} • {buildingLabel(p)}
+                            </small>
+                          </div>
+                          <div>
+                            <button>Simpan</button>
+                            {!p.owner_player_id && (
+                              <button
+                                type="button"
+                                className="danger"
+                                onClick={() =>
+                                  adminAct(
+                                    { action: "delete_property", id: p.id },
+                                    "Properti dihapus",
+                                  )
+                                }
+                              >
+                                Hapus
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="property-fields">
+                          <label>
+                            Nama
+                            <input name="name" defaultValue={p.name} />
+                          </label>
+                          <label>
+                            Kompleks / warna
+                            <input
+                              name="group_name"
+                              defaultValue={p.group_name}
+                            />
+                          </label>
+                          <label>
+                            Harga beli
+                            <input
+                              name="price"
+                              type="number"
+                              defaultValue={p.price}
+                            />
+                          </label>
+                          <label>
+                            Harga jual ke bank
+                            <input
+                              name="sell_price"
+                              type="number"
+                              defaultValue={
+                                p.sell_price || Math.floor(p.price / 2)
+                              }
+                            />
+                          </label>
+                          <label>
+                            Sewa tanah
+                            <input
+                              name="rent"
+                              type="number"
+                              defaultValue={p.rent}
+                            />
+                          </label>
+                          <label>
+                            Harga rumah
+                            <input
+                              name="house_price"
+                              type="number"
+                              defaultValue={p.house_price}
+                            />
+                          </label>
+                          <label>
+                            Harga hotel
+                            <input
+                              name="hotel_price"
+                              type="number"
+                              defaultValue={p.hotel_price}
+                            />
+                          </label>
+                          <label>
+                            Sewa 1 rumah
+                            <input
+                              name="rent_1"
+                              type="number"
+                              defaultValue={p.rent_1}
+                            />
+                          </label>
+                          <label>
+                            Sewa 2 rumah
+                            <input
+                              name="rent_2"
+                              type="number"
+                              defaultValue={p.rent_2}
+                            />
+                          </label>
+                          <label>
+                            Sewa 3 rumah
+                            <input
+                              name="rent_3"
+                              type="number"
+                              defaultValue={p.rent_3}
+                            />
+                          </label>
+                          <label>
+                            Sewa 4 rumah
+                            <input
+                              name="rent_4"
+                              type="number"
+                              defaultValue={p.rent_4}
+                            />
+                          </label>
+                          <label>
+                            Sewa hotel
+                            <input
+                              name="rent_hotel"
+                              type="number"
+                              defaultValue={p.rent_hotel}
+                            />
+                          </label>
+                        </div>
+                      </form>
+                    ))}
+                  </div>
+                )}
+                {adminTab === "cards" && (
+                  <div className="admin-list cards-admin">
+                    <form
+                      className="new-row"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const f = new FormData(e.currentTarget);
+                        adminAct(
+                          {
+                            action: "save_card",
+                            card: {
+                              deck: f.get("deck"),
+                              title: f.get("title"),
+                              description: f.get("description"),
+                              amount: Number(f.get("amount")),
+                              enabled: true,
+                            },
+                          },
+                          "Kartu baru ditambahkan",
+                        );
+                        e.currentTarget.reset();
+                      }}
+                    >
+                      <select name="deck">
+                        <option value="chance">Kesempatan</option>
+                        <option value="fund">Dana Umum</option>
+                      </select>
+                      <input name="title" placeholder="Judul kartu" required />
+                      <input
+                        name="description"
+                        placeholder="Instruksi kartu"
+                        required
+                      />
+                      <input
+                        name="amount"
+                        type="number"
+                        placeholder="+ terima / - bayar"
+                      />
+                      <button>Tambah</button>
+                    </form>
+                    {game.cards.map((c) => (
+                      <form
+                        key={c.id}
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const f = new FormData(e.currentTarget);
+                          adminAct(
+                            {
+                              action: "save_card",
+                              card: {
+                                id: c.id,
+                                deck: f.get("deck"),
+                                title: f.get("title"),
+                                description: f.get("description"),
+                                amount: Number(f.get("amount")),
+                                enabled: f.get("enabled") === "on",
+                              },
+                            },
+                            "Kartu disimpan",
+                          );
+                        }}
+                      >
+                        <select name="deck" defaultValue={c.deck}>
+                          <option value="chance">Kesempatan</option>
+                          <option value="fund">Dana Umum</option>
+                        </select>
+                        <input name="title" defaultValue={c.title} />
+                        <input
+                          name="description"
+                          defaultValue={c.description}
+                        />
+                        <input
+                          name="amount"
+                          type="number"
+                          defaultValue={c.amount}
+                        />
+                        <label className="mini-check">
+                          <input
+                            name="enabled"
+                            type="checkbox"
+                            defaultChecked={!!c.enabled}
+                          />{" "}
+                          Aktif
+                        </label>
+                        <button>Simpan</button>
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() =>
+                            adminAct(
+                              { action: "delete_card", id: c.id },
+                              "Kartu dihapus",
+                            )
+                          }
+                        >
+                          Hapus
+                        </button>
+                      </form>
+                    ))}
+                  </div>
+                )}
+                {adminTab === "board" && (
+                  <div className="board-export">
+                    <div className="board-export-actions">
+                      <div>
+                        <b>Layout papan interaktif 40 petak</b>
+                        <small>
+                          Setiap properti memiliki QR unik untuk beli, bangun
+                          rumah/hotel, atau bayar sewa.
+                        </small>
+                      </div>
+                      <button
+                        className="primary"
+                        disabled={busy}
+                        onClick={downloadBoard}
+                      >
+                        {busy
+                          ? "Membuat gambar..."
+                          : "Unduh PNG resolusi tinggi"}
+                      </button>
+                    </div>
+                    <div className="print-board-wrap">
+                      <div className="print-board" ref={boardRef}>
+                        <div className="board-inner-line" />
+                        <div className="print-board-center">
+                          <div className="board-edition">
+                            DIGITAL PROPERTY EDITION
+                          </div>
+                          <span>MONOPOLI</span>
+                          <b>INDONESIA</b>
+                          <small>
+                            Ruang {game.room.code} • Scan petak dengan menu Scan
+                            Bayar
+                          </small>
+                          <div className="board-scan-guide">
+                            <strong>SCAN • CEK • KONFIRMASI</strong>
+                            <small>
+                              QR otomatis menentukan beli, bangun, atau sewa
+                            </small>
+                          </div>
+                          <div className="board-decks">
+                            <i>
+                              <b>?</b>
+                              <small>KESEMPATAN</small>
+                            </i>
+                            <i>
+                              <b>🏛</b>
+                              <small>DANA UMUM</small>
+                            </i>
+                          </div>
+                        </div>
+                        {game.spaces.map((s) => {
+                          const p = game.properties.find(
+                            (x) => x.id === s.property_id,
+                          );
+                          return (
+                            <div
+                              key={s.id}
+                              className={`print-space space-${s.type}`}
+                              style={
+                                {
+                                  ...boardPosition(s.position),
+                                  "--space-color": s.color || "#efe9dc",
+                                } as React.CSSProperties
+                              }
+                            >
+                              <span className="space-color" />
+                              <small className="space-number">
+                                {s.position + 1}
+                              </small>
+                              <b>{s.name}</b>
+                              {p && (
+                                <div className="property-space-qr">
+                                  <QRCodeSVG
+                                    value={JSON.stringify({
+                                      kind: "ORANG KAYA-property",
+                                      version: 1,
+                                      room: game.room.code,
+                                      propertyId: p.id,
+                                    })}
+                                    size={52}
+                                    level="M"
+                                    marginSize={1}
+                                  />
+                                </div>
+                              )}
+                              <em>
+                                {p
+                                  ? `${rupiah(p.price)} • Sewa ${p.group_name === "Utilitas" ? "4×/10× dadu" : rupiah(p.rent)}`
+                                  : s.type.replaceAll("_", " ")}
+                              </em>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <p className="board-hint">
+                      Cetak dengan kualitas tinggi. QR bersifat tetap: keputusan
+                      beli, membangun, atau membayar sewa selalu mengikuti data
+                      permainan terbaru.
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : modal === "qr" ? (
+              <>
+                <p className="eyebrow">QR PEMBAYARAN INTERNAL</p>
+                <h2>Bayar ke {me.name}</h2>
+                <label>
+                  Nominal permintaan (opsional)
+                  <input
+                    inputMode="numeric"
+                    value={qrAmount}
+                    onChange={(e) =>
+                      setQrAmount(e.target.value.replace(/\D/g, ""))
+                    }
+                    placeholder="Kosongkan agar pembayar mengisi"
+                  />
+                </label>
+                <div className="real-qr">
+                  <QRCodeSVG
+                    value={JSON.stringify({
+                      kind: "ORANG KAYA-payment",
+                      version: 1,
+                      room: game.room.code,
+                      playerId: me.id,
+                      name: me.name,
+                      amount: Number(qrAmount) || 0,
+                    })}
+                    size={220}
+                    level="M"
+                    marginSize={2}
+                  />
+                  <span>{me.token}</span>
+                </div>
+                <div className="pay-code">
+                  {game.room.code} • {me.id.slice(-4).toUpperCase()}
+                </div>
+                {Number(qrAmount) > 0 && (
+                  <p className="qr-request">
+                    Permintaan: <b>{rupiah(Number(qrAmount))}</b>
+                  </p>
+                )}
+                <p className="qr-note">
+                  Pemain lain membuka Scan Bayar, mengarahkan kamera ke QR ini,
+                  lalu mengonfirmasi. Bukan QRIS dan tidak memakai uang asli.
+                </p>
+              </>
+            ) : modal === "scan" ? (
+              <>
+                <p className="eyebrow">PEMINDAI ORANG KAYA</p>
+                <h2>Arahkan kamera ke QR</h2>
+                <div id="qr-reader" className="qr-reader" />
+                <p className="qr-note">
+                  Dapat membaca QR pemain dan QR properti pada papan di ruang
+                  yang sama.
+                </p>
+              </>
+            ) : modal === "propertyScan" && scannedProperty ? (
+              <>
+                <p className="eyebrow">
+                  QR PROPERTI • {scannedProperty.group_name}
+                </p>
+                <div className="scan-property-card">
+                  <span
+                    className="scan-property-color"
+                    style={{
+                      background:
+                        game.spaces.find(
+                          (s) => s.property_id === scannedProperty.id,
+                        )?.color || "#17352d",
+                    }}
+                  />
+                  <h2>{scannedProperty.name}</h2>
+                  <p>
+                    {buildingLabel(scannedProperty)} • Sewa aktif{" "}
+                    <b>{rupiah(currentRent(scannedProperty))}</b>
+                  </p>
+                  <div className="scan-property-facts">
+                    <span>
+                      <small>Harga beli</small>
+                      <b>{rupiah(scannedProperty.price)}</b>
+                    </span>
+                    <span>
+                      <small>Pemilik</small>
+                      <b>
+                        {scannedProperty.owner_player_id
+                          ? playerName(scannedProperty.owner_player_id)
+                          : "Bank"}
+                      </b>
+                    </span>
+                  </div>
+                </div>
+                {!scannedProperty.owner_player_id ? (
+                  <>
+                    <p className="scan-decision">
+                      Properti belum dimiliki. Ajukan pembelian kepada bank?
+                    </p>
+                    <button
+                      className="primary wide"
+                      disabled={busy}
+                      onClick={() =>
+                        act(
+                          {
+                            action: "buy_property",
+                            propertyId: scannedProperty.id,
+                          },
+                          "Pembelian diajukan",
+                        )
+                      }
+                    >
+                      Konfirmasi beli • {rupiah(scannedProperty.price)}
+                    </button>
+                  </>
+                ) : scannedProperty.owner_player_id === me.id ? (
+                  <>
+                    {scannedProperty.house_price > 0 ? (
+                      <>
+                        <p className="scan-decision">
+                          Ini properti Anda. Pembangunan tetap memerlukan satu
+                          kompleks penuh dan dilakukan merata.
+                        </p>
+                        <button
+                          className="primary wide"
+                          disabled={busy || scannedProperty.houses >= 5}
+                          onClick={() =>
+                            act(
+                              {
+                                action: "build_property",
+                                propertyId: scannedProperty.id,
+                              },
+                              scannedProperty.houses === 4
+                                ? "Hotel berhasil dibangun"
+                                : "Rumah berhasil dibangun",
+                            )
+                          }
+                        >
+                          {scannedProperty.houses >= 5
+                            ? "Properti sudah memiliki hotel"
+                            : scannedProperty.houses === 4
+                              ? `Konfirmasi bangun hotel • ${rupiah(scannedProperty.hotel_price)}`
+                              : `Konfirmasi bangun rumah • ${rupiah(scannedProperty.house_price)}`}
+                        </button>
+                      </>
+                    ) : (
+                      <p className="scan-decision">
+                        Properti khusus ini milik Anda dan tidak dapat dibangun
+                        rumah.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p className="scan-decision">
+                      Properti milik{" "}
+                      {playerName(scannedProperty.owner_player_id)}. Sewa
+                      dihitung otomatis sesuai bangunan saat ini.
+                    </p>
+                    <button
+                      className="primary wide"
+                      disabled={busy}
+                      onClick={() =>
+                        act(
+                          {
+                            action: "pay_rent",
+                            propertyId: scannedProperty.id,
+                          },
+                          "Sewa berhasil dibayar",
+                        )
+                      }
+                    >
+                      Konfirmasi bayar sewa •{" "}
+                      {rupiah(currentRent(scannedProperty))}
+                    </button>
+                  </>
+                )}
+              </>
+            ) : modal === "property" ? (
+              <>
+                <p className="eyebrow">SERTIFIKAT & BANGUNAN</p>
+                <h2>Kelola properti</h2>
+                <div className="property-list detailed">
+                  {game.properties.map((p) => {
+                    const mine = p.owner_player_id === me.id,
+                      canBuild = p.house_price > 0;
+                    return (
+                      <article key={p.id}>
+                        <div className="property-info">
+                          <b>{p.name}</b>
+                          <small>
+                            {p.group_name} •{" "}
+                            {canBuild ? buildingLabel(p) : "Properti khusus"}
+                          </small>
+                          <small>
+                            Harga {rupiah(p.price)} • Sewa aktif{" "}
+                            <strong>{rupiah(currentRent(p))}</strong>
+                            {ownsGroup(p) && p.houses === 0
+                              ? " (monopoli 2×)"
+                              : ""}
+                          </small>
+                        </div>
+                        <div className="property-actions">
+                          {!p.owner_player_id ? (
+                            <button
+                              disabled={busy}
+                              onClick={() =>
+                                act(
+                                  { action: "buy_property", propertyId: p.id },
+                                  "Pembelian diajukan",
+                                )
+                              }
+                            >
+                              Beli {rupiah(p.price)}
+                            </button>
+                          ) : mine ? (
+                            <>
+                              {canBuild && (
+                                <button
+                                  disabled={busy || p.houses >= 5}
+                                  onClick={() =>
+                                    act(
+                                      {
+                                        action: "build_property",
+                                        propertyId: p.id,
+                                      },
+                                      p.houses === 4
+                                        ? "Hotel berhasil dibangun"
+                                        : "Rumah berhasil dibangun",
+                                    )
+                                  }
+                                >
+                                  {p.houses === 4
+                                    ? `Bangun hotel ${rupiah(p.hotel_price)}`
+                                    : `Bangun rumah ${rupiah(p.house_price)}`}
+                                </button>
+                              )}
+                              {p.houses > 0 && (
+                                <button
+                                  className="outline-action"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    act(
+                                      {
+                                        action: "sell_building",
+                                        propertyId: p.id,
+                                      },
+                                      "Bangunan dijual ke bank",
+                                    )
+                                  }
+                                >
+                                  Jual bangunan
+                                </button>
+                              )}
+                              <button
+                                className="danger-action"
+                                disabled={busy}
+                                onClick={() =>
+                                  act(
+                                    {
+                                      action: "sell_property",
+                                      propertyId: p.id,
+                                    },
+                                    "Properti dijual ke bank",
+                                  )
+                                }
+                              >
+                                Jual tanah{" "}
+                                {rupiah(
+                                  p.sell_price || Math.floor(p.price / 2),
+                                )}
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              disabled={busy}
+                              onClick={() =>
+                                act(
+                                  { action: "pay_rent", propertyId: p.id },
+                                  "Sewa berhasil dibayar",
+                                )
+                              }
+                            >
+                              Bayar sewa {rupiah(currentRent(p))}
+                            </button>
+                          )}
+                          <small className="owner-label">
+                            {p.owner_player_id
+                              ? `Pemilik: ${playerName(p.owner_player_id)}`
+                              : "Milik bank"}
+                          </small>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </>
+            ) : modal === "card" ? (
+              <>
+                <p className="eyebrow">KARTU DIGITAL</p>
+                <h2>Ambil satu kartu</h2>
+                <div className="card-choice">
+                  <button
+                    onClick={() =>
+                      act(
+                        { action: "draw_card", deck: "chance" },
+                        "Kartu kesempatan diambil",
+                      )
+                    }
+                  >
+                    ?<b>Kesempatan</b>
+                  </button>
+                  <button
+                    onClick={() =>
+                      act(
+                        { action: "draw_card", deck: "fund" },
+                        "Kartu dana umum diambil",
+                      )
+                    }
+                  >
+                    🏛<b>Dana Umum</b>
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="eyebrow">
+                  {modal === "bank" ? "PANEL BANKIR" : "PEMBAYARAN"}
+                </p>
+                <h2>
+                  {modal === "bank"
+                    ? "Kirim dana dari bank"
+                    : "Bayar pemain atau bank"}
+                </h2>
+                <label>
+                  Tujuan
+                  <select
+                    value={target}
+                    onChange={(e) => setTarget(e.target.value)}
+                  >
+                    {modal !== "bank" && <option value="bank">🏛 Bank</option>}
+                    {game.players
+                      .filter((p) => p.id !== me.id)
+                      .map((p) => (
+                        <option value={p.id} key={p.id}>
+                          {p.token} {p.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label>
+                  Nominal (M)
+                  <input
+                    inputMode="numeric"
+                    value={amount}
+                    onChange={(e) =>
+                      setAmount(e.target.value.replace(/\D/g, ""))
+                    }
+                  />
+                </label>
+                <label>
+                  Keterangan
+                  <input
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                  />
+                </label>
+                <button
+                  disabled={busy || (modal === "bank" && target === "bank")}
+                  className="primary wide"
+                  onClick={() =>
+                    act(
+                      {
+                        action: modal === "bank" ? "bank_transfer" : "pay",
+                        target,
+                        amount: Number(amount),
+                        note,
+                      },
+                      modal === "bank"
+                        ? "Dana bank dikirim"
+                        : "Pembayaran berhasil",
+                    )
+                  }
+                >
+                  {busy
+                    ? "Memproses..."
+                    : "Konfirmasi " + rupiah(Number(amount) || 0)}
+                </button>
+              </>
+            )}
+          </section>
+        </div>
+      )}
+      {toast && <div className="toast">✓ {toast}</div>}
+    </main>
+  );
 }
