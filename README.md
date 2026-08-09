@@ -4,7 +4,9 @@ Aplikasi pendamping papan Monopoly fisik. Saldo, bank, transaksi, properti, ruma
 
 Fitur tambahan:
 
-- Layout papan 16 petak mengikuti konfigurasi admin dan dapat diunduh sebagai PNG resolusi tinggi.
+- Login Google untuk seluruh pemain dan pengamanan sesi pemain berdasarkan akun.
+- Statistik akun terdaftar, akun aktif, pengguna harian, dan kunjungan tujuh hari pada halaman awal.
+- Layout papan 40 petak mengikuti konfigurasi admin dan dapat diunduh sebagai PNG resolusi tinggi.
 - QR pembayaran internal sungguhan dengan nominal permintaan opsional.
 - Scan QR memakai kamera HP; penerima dan nominal terisi otomatis lalu dikonfirmasi sebelum saldo berpindah.
 
@@ -30,15 +32,27 @@ Contoh `.env` untuk Docker Compose:
 ```env
 POSTGRES_PASSWORD=password-kuat-dan-unik
 APP_PORT=3000
+AUTH_SECRET=hasil-openssl-rand-base64-32
+AUTH_URL=https://monopoly.domainanda.com
+GOOGLE_CLIENT_ID=client-id-dari-google
+GOOGLE_CLIENT_SECRET=client-secret-dari-google
 ```
 
 ## Deployment di Coolify
 
 1. Push folder ini ke GitHub/GitLab.
 2. Di Coolify pilih **New Resource → Docker Compose** dan hubungkan repo.
-3. Tambahkan environment `POSTGRES_PASSWORD` dengan nilai yang kuat.
-4. Arahkan domain ke service `app` port `3000`.
-5. Deploy. Jangan expose service PostgreSQL ke internet.
+3. Buat OAuth Client bertipe **Web application** di Google Cloud Console.
+4. Tambahkan origin `https://monopoly.domainanda.com` dan callback `https://monopoly.domainanda.com/api/auth/callback/google`.
+5. Tambahkan `POSTGRES_PASSWORD`, `AUTH_SECRET`, `AUTH_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, dan `APP_PORT` pada Environment Variables Coolify.
+6. Arahkan domain ke service `app` port `3000`.
+7. Deploy. Jangan expose service PostgreSQL ke internet.
+
+Buat `AUTH_SECRET` dengan:
+
+```bash
+openssl rand -base64 32
+```
 
 Pemindaian kamera membutuhkan HTTPS (atau `localhost` saat pengembangan). Pastikan domain Coolify sudah memiliki SSL aktif; browser biasanya menolak akses kamera melalui alamat HTTP biasa.
 

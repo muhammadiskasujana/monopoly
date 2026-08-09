@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { toPng } from "html-to-image";
+import { signIn, signOut, useSession } from "next-auth/react";
 
 type Player = { id:string; name:string; token:string; balance:number; is_host:number; status:string };
 type Tx = { id:string; from_player_id:string|null; to_player_id:string|null; amount:number; type:string; note:string; status:string; created_at:number };
@@ -12,6 +13,7 @@ type Card = { id:string; deck:string; title:string; description:string; amount:n
 type Settings = { starting_balance:number; go_salary:number; max_players:number; currency_symbol:string; require_bank_approval:number };
 type Game = { room:{ code:string; status:string; turn:number }; players:Player[]; transactions:Tx[]; properties:Property[]; spaces:Space[]; cards:Card[]; settings:Settings };
 type Session = { roomCode:string; playerId:string };
+type Analytics = { summary:{total_users:number;active_accounts:number;active_30d:number;active_today:number};daily:{date:string;visits:number;users:number}[] };
 
 const TOKENS = ["🚗","🎩","🐕","🚢","🐈","🚀","🛵","🦖"];
 const api = async (body:Record<string,unknown>) => {
@@ -20,6 +22,8 @@ const api = async (body:Record<string,unknown>) => {
 };
 
 export default function Home(){
+  const { data:login,status:loginStatus }=useSession();
+  const [analytics,setAnalytics]=useState<Analytics|null>(null);
   const [session,setSession] = useState<Session|null>(null);
   const [game,setGame] = useState<Game|null>(null);
   const [name,setName] = useState(""); const [code,setCode] = useState(""); const [token,setToken] = useState(TOKENS[0]);
@@ -31,9 +35,12 @@ export default function Home(){
   const [toast,setToast] = useState(""); const [busy,setBusy] = useState(false);
   const boardRef=useRef<HTMLDivElement>(null);
 
+  useEffect(()=>{fetch("/api/analytics").then(r=>r.json()).then(setAnalytics).catch(()=>{})},[]);
+  useEffect(()=>{if(loginStatus!=="authenticated")return;fetch("/api/analytics",{method:"POST"}).then(()=>fetch("/api/analytics")).then(r=>r.json()).then(setAnalytics).catch(()=>{});if(!name&&login?.user?.name)setName(login.user.name.slice(0,18))},[loginStatus,login?.user?.name,name]);
+
   const tell=(m:string)=>{setToast(m);window.setTimeout(()=>setToast(""),2600)};
   const refresh=useCallback(async(s=session)=>{if(!s)return;try{setGame(await api({action:"state",...s}))}catch(e){tell((e as Error).message)}},[session]);
-  useEffect(()=>{const raw=localStorage.getItem("monopoly-session");if(raw) setSession(JSON.parse(raw))},[]);
+  useEffect(()=>{if(loginStatus!=="authenticated")return;const raw=localStorage.getItem("monopoly-session");if(raw) setSession(JSON.parse(raw))},[loginStatus]);
   useEffect(()=>{if(!session)return;refresh(session);const id=setInterval(()=>refresh(session),2200);return()=>clearInterval(id)},[session,refresh]);
   const enter=(s:Session)=>{localStorage.setItem("monopoly-session",JSON.stringify(s));setSession(s)};
   async function start(action:"create"|"join") { if(name.trim().length<2)return tell("Isi nama minimal 2 huruf"); setBusy(true);try{const d=await api({action,name:name.trim(),code:code.trim().toUpperCase(),token});enter(d.session)}catch(e){tell((e as Error).message)}finally{setBusy(false)} }
@@ -42,16 +49,22 @@ export default function Home(){
   function leave(){localStorage.removeItem("monopoly-session");setSession(null);setGame(null);setMode("home")}
   async function downloadBoard(){if(!boardRef.current)return;setBusy(true);try{const dataUrl=await toPng(boardRef.current,{pixelRatio:3,cacheBust:true,backgroundColor:"#dcebdd"});const link=document.createElement("a");link.download=`papan-monopoly-${game?.room.code||"custom"}.png`;link.href=dataUrl;link.click();tell("Gambar papan berhasil diunduh")}catch{tell("Gambar papan gagal dibuat. Coba lagi.")}finally{setBusy(false)}}
 
-  useEffect(()=>{if(modal!=="scan")return;let scanner:{stop:()=>Promise<void>;clear:()=>void}|null=null;let cancelled=false;(async()=>{try{const {Html5Qrcode}=await import("html5-qrcode");if(cancelled)return;const instance=new Html5Qrcode("qr-reader");scanner=instance;await instance.start({facingMode:"environment"},{fps:10,qrbox:{width:240,height:240}},async text=>{try{const payload=JSON.parse(text);if(payload.kind!=="monopoly-payment"||payload.room!==session?.roomCode)throw new Error("QR bukan dari ruang ini");if(payload.playerId===session?.playerId)throw new Error("Tidak dapat membayar diri sendiri");setTarget(String(payload.playerId));if(Number(payload.amount)>0)setAmount(String(Math.trunc(Number(payload.amount))));setNote(`Pembayaran QR ke ${String(payload.name||"pemain")}`);await instance.stop();setModal("pay");tell("QR terbaca. Periksa lalu konfirmasi pembayaran.")}catch(e){tell((e as Error).message)}} ,()=>{});}catch(e){tell("Kamera tidak dapat dibuka. Pastikan izin kamera diberikan dan website memakai HTTPS.")}})();return()=>{cancelled=true;if(scanner)scanner.stop().catch(()=>{}).finally(()=>scanner?.clear())}},[modal,session]);
+  useEffect(()=>{if(modal!=="scan")return;let scanner:{stop:()=>Promise<void>;clear:()=>void;getState:()=>number}|null=null;let cancelled=false;(async()=>{try{const {Html5Qrcode}=await import("html5-qrcode");if(cancelled)return;const instance=new Html5Qrcode("qr-reader");scanner=instance;await instance.start({facingMode:"environment"},{fps:10,qrbox:{width:240,height:240}},text=>{try{const payload=JSON.parse(text);if(payload.kind!=="monopoly-payment"||payload.room!==session?.roomCode)throw new Error("QR bukan dari ruang ini");if(payload.playerId===session?.playerId)throw new Error("Tidak dapat membayar diri sendiri");setTarget(String(payload.playerId));if(Number(payload.amount)>0)setAmount(String(Math.trunc(Number(payload.amount))));setNote(`Pembayaran QR ke ${String(payload.name||"pemain")}`);setModal("pay");tell("QR terbaca. Periksa lalu konfirmasi pembayaran.")}catch(e){tell((e as Error).message)}} ,()=>{});}catch(e){tell("Kamera tidak dapat dibuka. Pastikan izin kamera diberikan dan website memakai HTTPS.")}})();return()=>{cancelled=true;if(!scanner)return;const state=scanner.getState();if(state===2||state===3)scanner.stop().catch(()=>{}).finally(()=>scanner?.clear());else scanner.clear()}},[modal,session]);
+
+  const stats=<section className="public-stats"><div><small>Akun terdaftar</small><b>{analytics?.summary.total_users??0}</b></div><div><small>Akun aktif</small><b>{analytics?.summary.active_accounts??0}</b></div><div><small>Aktif 30 hari</small><b>{analytics?.summary.active_30d??0}</b></div><div><small>Aktif hari ini</small><b>{analytics?.summary.active_today??0}</b></div><div className="visit-chart"><span><small>Kunjungan 7 hari terakhir</small><b>{analytics?.daily.reduce((a,x)=>a+x.visits,0)??0}</b></span><span className="bars">{(analytics?.daily||[]).map(x=><i key={x.date} title={`${x.date}: ${x.visits} kunjungan`} style={{height:`${Math.max(8,Math.min(56,x.visits*8))}px`}}/>)}</span></div></section>;
+
+  if(loginStatus==="loading")return <main className="auth-loading"><div className="brand"><span className="brand-mark">M</span><span>MONOPOLY<small>DIGITAL</small></span></div><p>Menyiapkan akun...</p></main>;
+
+  if(loginStatus==="unauthenticated")return <main className="landing"><nav><div className="brand"><span className="brand-mark">M</span><span>MONOPOLY<small>DIGITAL</small></span></div><span className="demo-chip">Uang permainan • bukan uang asli</span></nav><section className="hero auth-hero"><div className="hero-copy"><p className="eyebrow">MONOPOLY DIGITAL INDONESIA</p><h1>Masuk, bermain, dan <em>pantau saldo.</em></h1><p>Gunakan akun Google agar identitas dan riwayat penggunaan Anda tersimpan aman pada satu akun.</p><button className="google-login" onClick={()=>signIn("google")}><b>G</b><span>Masuk dengan Google</span></button><small className="login-note">Login diperlukan untuk membuat atau bergabung ke ruang permainan.</small></div><div className="board-art"><div className="board-center"><b>MONOPOLY</b><span>DIGITAL BANK</span></div>{["GO","🏠","?","🚂","💎","🏛","⚡","🔒"].map((x,i)=><i key={i} style={{transform:`rotate(${i*45}deg) translateY(-142px) rotate(-${i*45}deg)`}}>{x}</i>)}</div></section>{stats}</main>;
 
   if(!session||!game) return <main className="landing">
-    <nav><div className="brand"><span className="brand-mark">M</span><span>MONOPOLY<small>DIGITAL</small></span></div><span className="demo-chip">Uang permainan • bukan uang asli</span></nav>
+    <nav><div className="brand"><span className="brand-mark">M</span><span>MONOPOLY<small>DIGITAL</small></span></div><div className="account-chip">{login?.user?.image&&<img src={login.user.image} alt=""/>}<span><b>{login?.user?.name}</b><small>{login?.user?.email}</small></span><button onClick={()=>signOut()}>Keluar akun</button></div></nav>
     <section className="hero">
       <div className="hero-copy"><p className="eyebrow">PENDAMPING PAPAN MONOPOLY</p><h1>Dompet digital untuk <em>serunya satu meja.</em></h1><p>Tak perlu lagi membagi uang kertas. Buat ruang, ajak teman lewat kode, lalu bayar sewa dan transaksi bank dari HP masing-masing.</p>
       {mode==="home"?<div className="hero-actions"><button className="primary" onClick={()=>setMode("create")}>Buat permainan</button><button className="secondary" onClick={()=>setMode("join")}>Gabung dengan kode</button></div>:
       <div className="join-card"><button className="back" onClick={()=>setMode("home")}>← Kembali</button><h2>{mode==="create"?"Buat ruang baru":"Gabung permainan"}</h2><label>Nama pemain<input autoFocus value={name} maxLength={18} onChange={e=>setName(e.target.value)} placeholder="Contoh: Iska"/></label>{mode==="join"&&<label>Kode ruang<input value={code} maxLength={6} onChange={e=>setCode(e.target.value.toUpperCase())} placeholder="Contoh: MAJU42"/></label>}<div className="token-row">{TOKENS.map(t=><button key={t} className={token===t?"selected":""} onClick={()=>setToken(t)}>{t}</button>)}</div><button className="primary wide" disabled={busy} onClick={()=>start(mode)}>{busy?"Menyiapkan...":mode==="create"?"Buat & jadi bankir":"Masuk ke ruang"}</button></div>}
       </div><div className="board-art"><div className="board-center"><b>MONOPOLY</b><span>DIGITAL BANK</span></div>{["GO","🏠","?","🚂","💎","🏛","⚡","🔒"].map((x,i)=><i key={i} style={{transform:`rotate(${i*45}deg) translateY(-142px) rotate(-${i*45}deg)`}}>{x}</i>)}</div>
-    </section><section className="how"><div><b>①</b><span>Buat ruang</span></div><div><b>②</b><span>Bagikan kode</span></div><div><b>③</b><span>Main dari HP</span></div></section>{toast&&<div className="toast">{toast}</div>}
+    </section><section className="how"><div><b>①</b><span>Buat ruang</span></div><div><b>②</b><span>Bagikan kode</span></div><div><b>③</b><span>Main dari HP</span></div></section>{stats}{toast&&<div className="toast">{toast}</div>}
   </main>;
 
   const rupiah = (n:number) => `${game.settings.currency_symbol || "M"}${Number(n||0).toLocaleString("id-ID")}`;
