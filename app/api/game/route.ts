@@ -7,23 +7,14 @@ const code=()=>Array.from({length:6},()=>"ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math
 const json=(data:unknown,status=200)=>NextResponse.json(data,{status});
 
 async function init(){await db.batch([
-<<<<<<< HEAD
  db.prepare("CREATE TABLE IF NOT EXISTS rooms (code TEXT PRIMARY KEY, host_player_id TEXT, status TEXT NOT NULL DEFAULT 'active', turn INTEGER NOT NULL DEFAULT 1, created_at BIGINT NOT NULL)"),
  db.prepare("CREATE TABLE IF NOT EXISTS players (id TEXT PRIMARY KEY, room_code TEXT NOT NULL, name TEXT NOT NULL, token TEXT NOT NULL, balance INTEGER NOT NULL DEFAULT 1500, is_host INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active', created_at BIGINT NOT NULL)"),
  db.prepare("CREATE TABLE IF NOT EXISTS transactions (id TEXT PRIMARY KEY, room_code TEXT NOT NULL, from_player_id TEXT, to_player_id TEXT, amount INTEGER NOT NULL, type TEXT NOT NULL, note TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'completed', created_at BIGINT NOT NULL)"),
-=======
- db.prepare("CREATE TABLE IF NOT EXISTS rooms (code TEXT PRIMARY KEY, host_player_id TEXT, status TEXT NOT NULL DEFAULT 'active', turn INTEGER NOT NULL DEFAULT 1, created_at INTEGER NOT NULL)"),
- db.prepare("CREATE TABLE IF NOT EXISTS players (id TEXT PRIMARY KEY, room_code TEXT NOT NULL, name TEXT NOT NULL, token TEXT NOT NULL, balance INTEGER NOT NULL DEFAULT 1500, is_host INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'active', created_at INTEGER NOT NULL)"),
- db.prepare("CREATE TABLE IF NOT EXISTS transactions (id TEXT PRIMARY KEY, room_code TEXT NOT NULL, from_player_id TEXT, to_player_id TEXT, amount INTEGER NOT NULL, type TEXT NOT NULL, note TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'completed', created_at INTEGER NOT NULL)"),
->>>>>>> 53d8969820331526ee8ea3a2c5a890626333253c
  db.prepare("CREATE TABLE IF NOT EXISTS properties (id TEXT PRIMARY KEY, room_code TEXT NOT NULL, name TEXT NOT NULL, price INTEGER NOT NULL, rent INTEGER NOT NULL, owner_player_id TEXT, houses INTEGER NOT NULL DEFAULT 0, group_name TEXT NOT NULL DEFAULT 'Mandiri', house_price INTEGER NOT NULL DEFAULT 50, hotel_price INTEGER NOT NULL DEFAULT 50, sell_price INTEGER NOT NULL DEFAULT 0, rent_1 INTEGER NOT NULL DEFAULT 0, rent_2 INTEGER NOT NULL DEFAULT 0, rent_3 INTEGER NOT NULL DEFAULT 0, rent_4 INTEGER NOT NULL DEFAULT 0, rent_hotel INTEGER NOT NULL DEFAULT 0)"),
  db.prepare("CREATE TABLE IF NOT EXISTS room_settings (room_code TEXT PRIMARY KEY, starting_balance INTEGER NOT NULL DEFAULT 1500, go_salary INTEGER NOT NULL DEFAULT 200, max_players INTEGER NOT NULL DEFAULT 8, currency_symbol TEXT NOT NULL DEFAULT 'M', require_bank_approval INTEGER NOT NULL DEFAULT 1)"),
  db.prepare("CREATE TABLE IF NOT EXISTS board_spaces (id TEXT PRIMARY KEY, room_code TEXT NOT NULL, position INTEGER NOT NULL, name TEXT NOT NULL, type TEXT NOT NULL, property_id TEXT, color TEXT NOT NULL DEFAULT '#e7dfcf')"),
  db.prepare("CREATE TABLE IF NOT EXISTS cards (id TEXT PRIMARY KEY, room_code TEXT NOT NULL, deck TEXT NOT NULL, title TEXT NOT NULL, description TEXT NOT NULL, amount INTEGER NOT NULL DEFAULT 0, enabled INTEGER NOT NULL DEFAULT 1)"),
-<<<<<<< HEAD
  db.prepare("DO $$ BEGIN IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'rooms' AND column_name = 'created_at' AND data_type = 'integer') THEN ALTER TABLE rooms ALTER COLUMN created_at TYPE BIGINT USING created_at::BIGINT; END IF; IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'players' AND column_name = 'created_at' AND data_type = 'integer') THEN ALTER TABLE players ALTER COLUMN created_at TYPE BIGINT USING created_at::BIGINT; END IF; IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'transactions' AND column_name = 'created_at' AND data_type = 'integer') THEN ALTER TABLE transactions ALTER COLUMN created_at TYPE BIGINT USING created_at::BIGINT; END IF; END $$"),
-=======
->>>>>>> 53d8969820331526ee8ea3a2c5a890626333253c
  db.prepare("CREATE INDEX IF NOT EXISTS idx_players_room ON players(room_code)"),db.prepare("CREATE INDEX IF NOT EXISTS idx_tx_room ON transactions(room_code, created_at DESC)")]);
  await db.batch([
   db.prepare("UPDATE properties SET group_name='Cokelat',house_price=50,hotel_price=50,sell_price=price/2,rent_1=CASE name WHEN 'Gang Kelinci' THEN 40 ELSE 60 END,rent_2=CASE name WHEN 'Gang Kelinci' THEN 100 ELSE 180 END,rent_3=CASE name WHEN 'Gang Kelinci' THEN 300 ELSE 500 END,rent_4=CASE name WHEN 'Gang Kelinci' THEN 450 ELSE 700 END,rent_hotel=CASE name WHEN 'Gang Kelinci' THEN 600 ELSE 900 END WHERE name IN ('Gang Kelinci','Jalan Merdeka') AND group_name='Mandiri'"),
