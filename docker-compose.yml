@@ -1,0 +1,32 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: monopoly
+      POSTGRES_USER: monopoly
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ganti-password-ini}
+    volumes:
+      - monopoly_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U monopoly -d monopoly"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://monopoly:${POSTGRES_PASSWORD:-ganti-password-ini}@postgres:5432/monopoly
+      DB_POOL_MAX: 10
+      DB_SSL: "false"
+      NEXT_TELEMETRY_DISABLED: 1
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  monopoly_postgres:
