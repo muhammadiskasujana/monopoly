@@ -205,10 +205,14 @@ export default function Home() {
       setBusy(false);
     }
   }
-
+  //
   useEffect(() => {
     if (modal !== "scan") return;
-    let scanner: { stop: () => Promise<void>; clear: () => void } | null = null;
+    let scanner: {
+      stop: () => Promise<void>;
+      clear: () => void;
+      getState: () => number;
+    } | null = null;
     let cancelled = false;
     (async () => {
       try {
@@ -233,7 +237,6 @@ export default function Home() {
               if (Number(payload.amount) > 0)
                 setAmount(String(Math.trunc(Number(payload.amount))));
               setNote(`Pembayaran QR ke ${String(payload.name || "pemain")}`);
-              await instance.stop();
               setModal("pay");
               tell("QR terbaca. Periksa lalu konfirmasi pembayaran.");
             } catch (e) {
@@ -250,11 +253,20 @@ export default function Home() {
     })();
     return () => {
       cancelled = true;
-      if (scanner)
+
+      if (!scanner) return;
+
+      const state = scanner.getState();
+
+      // State 2 = scanning, state 3 = paused
+      if (state === 2 || state === 3) {
         scanner
           .stop()
           .catch(() => {})
           .finally(() => scanner?.clear());
+      } else {
+        scanner.clear();
+      }
     };
   }, [modal, session]);
 
